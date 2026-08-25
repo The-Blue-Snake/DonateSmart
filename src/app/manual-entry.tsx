@@ -71,7 +71,7 @@ export default function ManualEntry() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.cream,
+    backgroundColor: Colors.background,
     paddingTop: 16,
   },
   content: {

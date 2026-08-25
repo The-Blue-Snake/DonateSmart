@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   },
   permissionContainer: {
     flex: 1,
-    backgroundColor: Colors.cream,
+    backgroundColor: Colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,

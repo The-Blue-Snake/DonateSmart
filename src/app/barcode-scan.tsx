@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   },
   permissionContainer: {
     flex: 1,
-    backgroundColor: Colors.cream,
+    backgroundColor: Colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
   },
   resultWrap: {
     flex: 1,
-    backgroundColor: Colors.cream,
+    backgroundColor: Colors.background,
     justifyContent: 'center',
   },
   resultContent: {

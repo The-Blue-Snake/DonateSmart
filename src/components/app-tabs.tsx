@@ -1,41 +1,88 @@
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { useColorScheme } from 'react-native';
-
 import { Colors } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { useCallback, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import PagerView from 'react-native-pager-view';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import CentersList from '../app/(tabs)/centers';
+import Home from '../app/(tabs)/index';
+import MapScreen from '../app/(tabs)/map';
+
+type IconName = keyof typeof Ionicons.glyphMap;
+
+const TABS: {
+  key: string;
+  label: string;
+  icon: IconName;
+  iconFocused: IconName;
+  Component: React.ComponentType;
+}[] = [
+  { key: 'index', label: 'Donate', icon: 'home-outline', iconFocused: 'home', Component: Home },
+  { key: 'centers', label: 'Centers', icon: 'location-outline', iconFocused: 'location', Component: CentersList },
+  { key: 'map', label: 'Map', icon: 'map-outline', iconFocused: 'map', Component: MapScreen },
+];
 
 export default function AppTabs() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+  const insets = useSafeAreaInsets();
+  const pagerRef = useRef<PagerView>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const goToPage = useCallback((index: number) => {
+    pagerRef.current?.setPage(index);
+  }, []);
 
   return (
-    <NativeTabs
-      backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}
-    >
-      <NativeTabs.Trigger
-        name="index"
-        options={{
-          title: 'Donate',
-          icon: { sf: 'house.fill' },
-        }}
-      />
+    <View style={styles.container}>
+      <PagerView
+        ref={pagerRef}
+        style={styles.pager}
+        initialPage={0}
+        onPageSelected={(e) => setActiveIndex(e.nativeEvent.position)}
+      >
+        {TABS.map(({ key, Component }) => (
+          <View key={key} style={styles.page}>
+            <Component />
+          </View>
+        ))}
+      </PagerView>
 
-      <NativeTabs.Trigger
-        name="centers"
-        options={{
-          title: 'Centers',
-          icon: { sf: 'location.fill' },
-        }}
-      />
-
-      <NativeTabs.Trigger
-        name="map"
-        options={{
-          title: 'Map',
-          icon: { sf: 'map.fill' },
-        }}
-      />
-    </NativeTabs>
+      <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        {TABS.map(({ key, label, icon, iconFocused }, index) => {
+          const focused = activeIndex === index;
+          return (
+            <Pressable
+              key={key}
+              onPress={() => goToPage(index)}
+              style={styles.tab}
+              hitSlop={{ top: 8, bottom: 8 }}
+            >
+              <Ionicons
+                name={focused ? iconFocused : icon}
+                size={23}
+                color={focused ? Colors.primary : Colors.textMuted}
+              />
+              <Text style={[styles.label, focused && styles.labelFocused]}>{label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  pager: { flex: 1 },
+  page: { flex: 1 },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: Colors.card,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    paddingTop: 10,
+  },
+  tab: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  label: { fontSize: 11, fontWeight: '500', color: Colors.textMuted, marginTop: 6 },
+  labelFocused: { fontWeight: '600', color: Colors.primary },
+});
