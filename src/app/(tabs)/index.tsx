@@ -73,11 +73,11 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: 20,
-    paddingBottom: 32,
+    paddingBottom: 22,
   },
   title: {
-    fontSize: 30,
-    fontWeight: '700',
+    fontSize: 28,
+    fontWeight: '600',
     color: Colors.text,
     letterSpacing: -0.4,
   },

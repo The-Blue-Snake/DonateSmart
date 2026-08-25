@@ -13,7 +13,6 @@ const palette = {
 } as const;
 */
 
-/*
 const palette = {
   primary: '#F97316',
   primaryDark: '#C2410C',
@@ -26,19 +25,7 @@ const palette = {
   accent: '#FACC15',
   accentDark: '#CA8A04',
 } as const;
-*/
-const palette = {
-  primary: '#3B82F6',
-  primaryDark: '#2563EB',
-  background: '#EFF6FF',
-  card: '#FFFFFF',
-  white: '#FFFFFF',
-  text: '#172033',
-  textMuted: '#64748B',
-  border: '#DBEAFE',
-  accent: '#F97316',
-  accentDark: '#C2410C',
-} as const;
+
 
 export const Colors = {
   ...palette,
@@ -47,5 +34,5 @@ export const Colors = {
 } as const;
 
 export const Spacing = {
-  screen: 24,
+  screen: 16,
 } as const;

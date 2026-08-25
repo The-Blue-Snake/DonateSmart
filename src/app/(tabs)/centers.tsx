@@ -310,10 +310,10 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   title: {
-    fontSize: 30,
-    fontWeight: '700',
+    fontSize: 28,
+    fontWeight: '600',
     color: Colors.text,
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
   },
   closeButton: {
     width: 32,
