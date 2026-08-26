@@ -1,9 +1,10 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, type Region } from 'react-native-maps';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Colors, Spacing } from '@/constants/theme';
 import type { DonationCenter } from '@/constants/types';
@@ -23,7 +24,6 @@ const MINNEAPOLIS: Region = {
 
 export default function MapScreen() {
   const { centerId } = useLocalSearchParams<{ centerId?: string }>();
-  const insets = useSafeAreaInsets();
   const focusedCenterId = Array.isArray(centerId) ? centerId[0] : centerId;
 
   const [centers, setCenters] = useState<DonationCenter[]>([]);
@@ -145,70 +145,103 @@ export default function MapScreen() {
     await Linking.openURL(url);
   };
 
-  const extraBottomSpacing = insets.bottom + 26;
-
   return (
-    <SafeAreaView style={[styles.container, { paddingBottom: extraBottomSpacing }]}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Map</Text>
-
-        {mapFocusId ? (
-          <Pressable style={styles.closeButton} onPress={showAllCenters}>
-            <Text style={styles.closeButtonText}>X</Text>
-          </Pressable>
-        ) : null}
-      </View>
-
-      <MapView
-        key={mapFocusId ?? 'all-centers'}
-        ref={mapRef}
-        style={styles.map}
-        initialRegion={MINNEAPOLIS}
-        showsUserLocation={false}
-        onMapReady={() => setMapReady(true)}
-      >
-        {markers.map(({ center, coordinate }) => (
-          <Marker
-            key={center.id}
-            coordinate={coordinate}
-            anchor={{ x: 0.5, y: 0.5 }}
-            onPress={() => focusOnCenter(center.id)}
-          >
-            <View style={styles.centerMarker} />
-          </Marker>
-        ))}
-
-        {userLocation ? (
-          <Marker coordinate={userLocation}>
-            <View style={styles.userMarker} />
-          </Marker>
-        ) : null}
-      </MapView>
-
-      {selectedCenter ? (
-        <View style={[styles.bottomPanel, { paddingBottom: extraBottomSpacing + 8 }]}>
-          <Text style={styles.selectedName}>{selectedCenter.name}</Text>
-          <Text style={styles.address}>{selectedCenter.address}</Text>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.headerSection}>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>Map</Text>
 
           {mapFocusId ? (
-            <Pressable
-              style={styles.detailsButton}
-              onPress={() => router.push({ pathname: '/(tabs)/centers', params: { centerId: selectedCenter.id } })}
-            >
-              <Text style={styles.detailsButtonText}>More details</Text>
+            <Pressable style={styles.closeButton} onPress={showAllCenters}>
+              <Ionicons name="close" size={18} color={Colors.text} />
             </Pressable>
           ) : null}
-
-          <View style={styles.routeButtons}>
-            <Pressable style={styles.routeButton} onPress={() => openRoute('apple')}>
-              <Text style={styles.routeButtonText}>Apple Maps</Text>
-            </Pressable>
-            <Pressable style={styles.routeButton} onPress={() => openRoute('google')}>
-              <Text style={styles.routeButtonText}>Google Maps</Text>
-            </Pressable>
-          </View>
         </View>
-      ) : null}
+
+        <View style={styles.headerDivider} />
+      </View>
+
+      <View style={styles.mapCard}>
+        <View style={styles.mapWrapper}>
+          <MapView
+            key={mapFocusId ?? 'all-centers'}
+            ref={mapRef}
+            style={styles.map}
+            initialRegion={MINNEAPOLIS}
+            showsUserLocation={false}
+            onMapReady={() => setMapReady(true)}
+          >
+            {markers.map(({ center, coordinate }) => (
+              <Marker
+                key={center.id}
+                coordinate={coordinate}
+                anchor={{ x: 0.5, y: 0.5 }}
+                onPress={() => focusOnCenter(center.id)}
+              >
+                <View style={styles.pinShadowWrap}>
+                  <Ionicons name="location-sharp" size={28} color={Colors.primary} />
+                  <View style={styles.pinCoreBlack} />
+                </View>
+              </Marker>
+            ))}
+
+            {userLocation ? (
+              <Marker coordinate={userLocation}>
+                <View style={styles.pinShadowWrap}>
+                  <Ionicons name="location-sharp" size={28} color={Colors.accent} />
+                  <View style={styles.pinCoreBlack} />
+                </View>
+              </Marker>
+            ) : null}
+          </MapView>
+        </View>
+
+        <View style={styles.infoPanel}>
+          {selectedCenter ? (
+            <>
+              <View style={styles.selectedHeader}>
+                <View style={styles.selectedTextGroup}>
+                  <Text style={styles.selectedName} numberOfLines={1}>
+                    {selectedCenter.name}
+                  </Text>
+                  <Text style={styles.address} numberOfLines={1}>
+                    {selectedCenter.address}
+                  </Text>
+                </View>
+
+                {mapFocusId ? (
+                  <Pressable
+                    style={styles.detailsLink}
+                    onPress={() =>
+                      router.push({ pathname: '/(tabs)/centers', params: { centerId: selectedCenter.id } })
+                    }
+                  >
+                    <Text style={styles.detailsLinkText}>More</Text>
+                    <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
+                  </Pressable>
+                ) : null}
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.routeButtons}>
+                <Pressable style={styles.routeButton} onPress={() => openRoute('apple')}>
+                  <Ionicons name="navigate-outline" size={16} color={Colors.card} />
+                  <Text style={styles.routeButtonText}>Apple Maps</Text>
+                </Pressable>
+                <Pressable style={styles.routeButtonSecondary} onPress={() => openRoute('google')}>
+                  <Ionicons name="navigate-outline" size={16} color={Colors.text} />
+                  <Text style={styles.routeButtonSecondaryText}>Google Maps</Text>
+                </Pressable>
+              </View>
+            </>
+          ) : (
+            <View style={styles.emptyPanel}>
+              <Text style={styles.emptyPanelText}>Select a pin to view information</Text>
+            </View>
+          )}
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -218,98 +251,167 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  header: {
-    height: 52,
+  headerSection: {
+    paddingHorizontal: Spacing.screen,
+    paddingTop: 10,
+    marginBottom: 18,
+  },
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.screen,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: Colors.primary,
+    fontSize: 28,
+    fontWeight: '600',
+    color: Colors.text,
+    letterSpacing: -0.4,
+  },
+  headerDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginTop: 12,
+    marginHorizontal: -Spacing.screen,
   },
   closeButton: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  closeButtonText: {
-    color: Colors.text,
-    fontWeight: '800',
+  mapCard: {
+    flex: 1,
+    minHeight: 0,
+    marginBottom: 20,
+    marginHorizontal: Spacing.screen,
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  mapWrapper: {
+    flex: 1,
+    minHeight: 0,
   },
   map: {
     flex: 1,
-    minHeight: 0,
-    marginTop: 6,
   },
-  userMarker: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: Colors.accent,
-    borderWidth: 2,
-    borderColor: Colors.accentDark,
+  pinShadowWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 8,
+    position: 'relative',
   },
-  bottomPanel: {
+  pinCoreBlack: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#111111',
+    top: 7,
+    left: '50%',
+    marginLeft: -4,
+  },
+  infoPanel: {
     backgroundColor: Colors.card,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
     paddingHorizontal: Spacing.screen,
-    paddingTop: 16,
-    paddingBottom: 24,
-    height: 190,
+    paddingTop: 18,
+    paddingBottom: 20,
+  },
+  emptyPanel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 8,
+  },
+  emptyPanelText: {
+    color: Colors.textMuted,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  selectedHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  selectedTextGroup: {
+    flex: 1,
   },
   selectedName: {
     color: Colors.text,
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
   address: {
     color: Colors.textMuted,
-    fontSize: 14,
-    marginTop: 4,
+    fontSize: 13,
+    marginTop: 3,
   },
-  detailsButton: {
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 10,
-    paddingVertical: 10,
+  detailsLink: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
+    gap: 2,
+    paddingTop: 2,
   },
-  detailsButtonText: {
-    color: Colors.text,
-    fontWeight: '700',
-    fontSize: 14,
+  detailsLinkText: {
+    color: Colors.primary,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginTop: 16,
   },
   routeButtons: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 14,
+    marginTop: 16,
   },
   routeButton: {
     flex: 1,
-    backgroundColor: Colors.text,
-    borderRadius: 12,
+    flexDirection: 'row',
+    gap: 7,
+    backgroundColor: Colors.primary,
+    borderRadius: 10,
     paddingVertical: 13,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   routeButtonText: {
     color: Colors.card,
-    fontWeight: '700',
+    fontWeight: '600',
     fontSize: 14,
   },
-  centerMarker: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: Colors.text,
-    borderWidth: 2,
-    borderColor: Colors.textMuted,
+  routeButtonSecondary: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 7,
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 10,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  routeButtonSecondaryText: {
+    color: Colors.text,
+    fontWeight: '600',
+    fontSize: 14,
   },
 });

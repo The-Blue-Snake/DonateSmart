@@ -241,25 +241,29 @@ export default function CentersList() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.headerRow}>
-        <View style={styles.headerCopy}>
-          <Text style={styles.title}>
-            {centerId ? 'Selected Center' : deepestSelectedCategory ? String(deepestSelectedCategory) : 'Find a Center'}
-          </Text>
+      <View style={styles.headerSection}>
+        <View style={styles.headerRow}>
+          <View style={styles.headerCopy}>
+            <Text style={styles.title}>
+              {centerId ? 'Selected Center' : deepestSelectedCategory ? String(deepestSelectedCategory) : 'Find a Center'}
+            </Text>
+          </View>
+
+          {centerId ? (
+            <Pressable
+              style={({ pressed }) => [styles.closeButton, pressed && styles.closeButtonPressed]}
+              onPress={() => router.push({ pathname: '/(tabs)/map', params: { centerId } })}
+            >
+              <Ionicons name="close" size={18} color={Colors.text} />
+            </Pressable>
+          ) : null}
         </View>
 
-        {centerId ? (
-          <Pressable
-            style={({ pressed }) => [styles.closeButton, pressed && styles.closeButtonPressed]}
-            onPress={() => router.push({ pathname: '/(tabs)/map', params: { centerId } })}
-          >
-            <Ionicons name="close" size={18} color={Colors.text} />
-          </Pressable>
-        ) : null}
+        <View style={styles.headerDivider} />
       </View>
 
       {!selectedTopLevel && !centerId ? (
-        <View style={styles.controls}>
+        <View style={styles.searchSection}>
           <View style={styles.searchInputWrap}>
             <Ionicons name="search-outline" size={17} color={Colors.textMuted} />
             <TextInput
@@ -273,7 +277,7 @@ export default function CentersList() {
         </View>
       ) : null}
 
-      <View style={styles.listArea}>
+      <View style={styles.listAreaStandalone}>
         <FlatList
           ref={listRef}
           data={centerId ? visibleCenters.filter(({ center }) => center.id === centerId) : visibleCenters}
@@ -297,13 +301,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  headerSection: {
+    paddingHorizontal: Spacing.screen,
+    paddingTop: 10,
+    marginBottom: 18,
+  },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 20,
-    marginHorizontal: Spacing.screen,
-    paddingTop: 21,
   },
   headerCopy: {
     flex: 1,
@@ -314,6 +320,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.text,
     letterSpacing: -0.4,
+  },
+  headerDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginTop: 12,
+    marginHorizontal: -Spacing.screen,
   },
   closeButton: {
     width: 32,
@@ -331,6 +343,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.screen,
     marginBottom: 18,
   },
+  searchSection: {
+    paddingHorizontal: Spacing.screen,
+    marginBottom: 18,
+  },
   searchInputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -340,19 +356,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     paddingHorizontal: 14,
+    paddingVertical: 16,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 12,
     color: Colors.text,
     fontSize: 15,
   },
-  listArea: {
+  listAreaStandalone: {
     flex: 1,
+    minHeight: 0,
   },
   listContent: {
     paddingHorizontal: Spacing.screen,
-    paddingBottom: 24,
+    paddingTop: 14,
+    paddingBottom: 18,
   },
   card: {
     backgroundColor: Colors.card,
@@ -400,7 +418,7 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     color: Colors.text,
     marginTop: 10,
-    lineHeight: 19,
+    lineHeight: 18,
   },
   metaGroup: {
     marginTop: 14,

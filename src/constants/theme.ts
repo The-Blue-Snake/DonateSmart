@@ -34,5 +34,5 @@ export const Colors = {
 } as const;
 
 export const Spacing = {
-  screen: 16,
+  screen: 12,
 } as const;

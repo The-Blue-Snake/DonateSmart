@@ -31,6 +31,7 @@ export default function Home() {
       <View style={styles.content}>
         <View style={styles.header}>
           <Text style={styles.title}>What are you donating?</Text>
+          <View style={styles.headerDivider} />
         </View>
 
         <View style={styles.list}>
@@ -72,14 +73,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.screen,
   },
   header: {
-    paddingTop: 20,
-    paddingBottom: 22,
+    paddingTop: 10,
+    paddingBottom: 20,
   },
   title: {
     fontSize: 28,
     fontWeight: '600',
     color: Colors.text,
     letterSpacing: -0.4,
+  },
+  headerDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginTop: 12,
+    marginHorizontal: -Spacing.screen,
   },
   list: {
     backgroundColor: Colors.card,
