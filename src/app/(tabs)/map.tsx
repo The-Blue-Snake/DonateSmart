@@ -147,22 +147,14 @@ export default function MapScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.headerSection}>
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>Map</Text>
-
+      <View style={styles.mapCard}>
+        <View style={styles.mapWrapper}>
           {mapFocusId ? (
             <Pressable style={styles.closeButton} onPress={showAllCenters}>
               <Ionicons name="close" size={18} color={Colors.text} />
             </Pressable>
           ) : null}
-        </View>
 
-        <View style={styles.headerDivider} />
-      </View>
-
-      <View style={styles.mapCard}>
-        <View style={styles.mapWrapper}>
           <MapView
             key={mapFocusId ?? 'all-centers'}
             ref={mapRef}
@@ -251,29 +243,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  headerSection: {
-    paddingHorizontal: Spacing.screen,
-    paddingTop: 10,
-    marginBottom: 18,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '600',
-    color: Colors.text,
-    letterSpacing: -0.4,
-  },
-  headerDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
-    marginTop: 12,
-    marginHorizontal: -Spacing.screen,
-  },
   closeButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
     width: 32,
     height: 32,
     borderRadius: 8,
@@ -282,10 +255,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.card,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1,
   },
   mapCard: {
     flex: 1,
     minHeight: 0,
+    marginTop: 4,
     marginBottom: 20,
     marginHorizontal: Spacing.screen,
     backgroundColor: Colors.card,
@@ -297,6 +272,7 @@ const styles = StyleSheet.create({
   mapWrapper: {
     flex: 1,
     minHeight: 0,
+    position: 'relative',
   },
   map: {
     flex: 1,

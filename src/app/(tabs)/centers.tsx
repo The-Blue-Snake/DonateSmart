@@ -229,10 +229,6 @@ export default function CentersList() {
     );
   };
 
-  const deepestSelectedCategory = selectedCategory
-    ? selectedCategory.split('>').map((segment) => segment.trim()).filter(Boolean).at(-1) ?? selectedCategory
-    : params.name;
-
   const emptyMessage = centerId
     ? 'Center details are unavailable.'
     : selectedTopLevel || selectedCategory
@@ -241,26 +237,16 @@ export default function CentersList() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.headerSection}>
-        <View style={styles.headerRow}>
-          <View style={styles.headerCopy}>
-            <Text style={styles.title}>
-              {centerId ? 'Selected Center' : deepestSelectedCategory ? String(deepestSelectedCategory) : 'Find a Center'}
-            </Text>
-          </View>
-
-          {centerId ? (
-            <Pressable
-              style={({ pressed }) => [styles.closeButton, pressed && styles.closeButtonPressed]}
-              onPress={() => router.push({ pathname: '/(tabs)/map', params: { centerId } })}
-            >
-              <Ionicons name="close" size={18} color={Colors.text} />
-            </Pressable>
-          ) : null}
+      {centerId ? (
+        <View style={styles.topBar}>
+          <Pressable
+            style={({ pressed }) => [styles.closeButton, pressed && styles.closeButtonPressed]}
+            onPress={() => router.push({ pathname: '/(tabs)/map', params: { centerId } })}
+          >
+            <Ionicons name="close" size={18} color={Colors.text} />
+          </Pressable>
         </View>
-
-        <View style={styles.headerDivider} />
-      </View>
+      ) : null}
 
       {!selectedTopLevel && !centerId ? (
         <View style={styles.searchSection}>
@@ -301,31 +287,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  headerSection: {
+  topBar: {
     paddingHorizontal: Spacing.screen,
     paddingTop: 10,
-    marginBottom: 18,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  headerCopy: {
-    flex: 1,
-    marginRight: 12,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '600',
-    color: Colors.text,
-    letterSpacing: -0.4,
-  },
-  headerDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
-    marginTop: 12,
-    marginHorizontal: -Spacing.screen,
+    paddingBottom: 8,
+    alignItems: 'flex-end',
   },
   closeButton: {
     width: 32,
@@ -333,6 +299,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: Colors.border,
+    backgroundColor: Colors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
