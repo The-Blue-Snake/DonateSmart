@@ -196,7 +196,7 @@ export default function MapScreen() {
                   <Ionicons
                     name="location-outline"
                     size={22}
-                    color="#FFFFFF"
+                    color={Colors.white}
                   />
                 </View>
               </Marker>
@@ -211,7 +211,7 @@ export default function MapScreen() {
                   <Ionicons
                     name="location-outline"
                     size={22}
-                    color="#FFFFFF"
+                    color={Colors.primary}
                   />
                 </View>
               </Marker>

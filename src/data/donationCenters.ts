@@ -1,10 +1,10 @@
+import type { DonationCenter } from '@/constants/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DEFAULT_DONATION_CENTERS } from './defaultDonationCenters';
-import type { DonationCenter } from '@/constants/types';
 
 const STORAGE_KEY = 'donatesmart_donation_centers';
 const SEED_VERSION_KEY = 'donatesmart_donation_centers_seed_version';
-const SEED_VERSION = '4';
+const SEED_VERSION = '10';
 
 export async function getCenters(): Promise<DonationCenter[]> {
   const raw = await AsyncStorage.getItem(STORAGE_KEY);
