@@ -18,8 +18,8 @@ type Coordinate = {
 const MINNEAPOLIS: Region = {
   latitude: 44.9778,
   longitude: -93.265,
-  latitudeDelta: 0.16,
-  longitudeDelta: 0.16,
+  latitudeDelta: 0.24,
+  longitudeDelta: 0.24,
 };
 
 export default function MapScreen() {
@@ -52,7 +52,9 @@ export default function MapScreen() {
     let active = true;
 
     const geocodeCenters = async () => {
-      const orderedCenters = mapFocusId ? [...centers].sort((first) => (first.id === mapFocusId ? -1 : 1)) : centers;
+      const orderedCenters = mapFocusId
+        ? [...centers].sort((first) => (first.id === mapFocusId ? -1 : 1))
+        : centers;
 
       for (const center of orderedCenters) {
         if (!active || coordinateCache.current[center.id]) {
@@ -61,10 +63,18 @@ export default function MapScreen() {
 
         try {
           const [coordinate] = await Location.geocodeAsync(center.address);
+
           if (active && coordinate) {
-            const resolved = { latitude: coordinate.latitude, longitude: coordinate.longitude };
+            const resolved = {
+              latitude: coordinate.latitude,
+              longitude: coordinate.longitude,
+            };
+
             coordinateCache.current[center.id] = resolved;
-            setCoordinates((current) => ({ ...current, [center.id]: resolved }));
+            setCoordinates((current) => ({
+              ...current,
+              [center.id]: resolved,
+            }));
           }
         } catch {
           continue;
@@ -84,7 +94,9 @@ export default function MapScreen() {
   useEffect(() => {
     Location.requestForegroundPermissionsAsync()
       .then(({ status }) =>
-        status === Location.PermissionStatus.GRANTED ? Location.getCurrentPositionAsync({}) : null,
+        status === Location.PermissionStatus.GRANTED
+          ? Location.getCurrentPositionAsync({})
+          : null,
       )
       .then((position) => {
         if (position) {
@@ -98,10 +110,14 @@ export default function MapScreen() {
   }, []);
 
   const selectedCenter = centers.find((center) => center.id === selectedId);
+
   const markers = centers
     .filter((center) => !mapFocusId || center.id === mapFocusId)
     .filter((center) => coordinates[center.id])
-    .map((center) => ({ center, coordinate: coordinates[center.id] }));
+    .map((center) => ({
+      center,
+      coordinate: coordinates[center.id],
+    }));
 
   useEffect(() => {
     if (!mapReady || !mapFocusId || !selectedCenter) {
@@ -109,9 +125,14 @@ export default function MapScreen() {
     }
 
     const marker = markers.find(({ center }) => center.id === mapFocusId);
+
     if (marker) {
       mapRef.current?.animateToRegion(
-        { ...marker.coordinate, latitudeDelta: 0.025, longitudeDelta: 0.025 },
+        {
+          ...marker.coordinate,
+          latitudeDelta: 0.025,
+          longitudeDelta: 0.025,
+        },
         500,
       );
     }
@@ -137,6 +158,7 @@ export default function MapScreen() {
     }
 
     const destination = encodeURIComponent(selectedCenter.address);
+
     const url =
       provider === 'apple'
         ? `http://maps.apple.com/?daddr=${destination}`
@@ -167,21 +189,30 @@ export default function MapScreen() {
               <Marker
                 key={center.id}
                 coordinate={coordinate}
-                anchor={{ x: 0.5, y: 0.5 }}
+                anchor={{ x: 0.5, y: 1 }}
                 onPress={() => focusOnCenter(center.id)}
               >
                 <View style={styles.pinShadowWrap}>
-                  <Ionicons name="location-sharp" size={28} color={Colors.primary} />
-                  <View style={styles.pinCoreBlack} />
+                  <Ionicons
+                    name="location-outline"
+                    size={22}
+                    color="#FFFFFF"
+                  />
                 </View>
               </Marker>
             ))}
 
             {userLocation ? (
-              <Marker coordinate={userLocation}>
+              <Marker
+                coordinate={userLocation}
+                anchor={{ x: 0.5, y: 1 }}
+              >
                 <View style={styles.pinShadowWrap}>
-                  <Ionicons name="location-sharp" size={28} color={Colors.accent} />
-                  <View style={styles.pinCoreBlack} />
+                  <Ionicons
+                    name="location-outline"
+                    size={22}
+                    color="#FFFFFF"
+                  />
                 </View>
               </Marker>
             ) : null}
@@ -196,6 +227,7 @@ export default function MapScreen() {
                   <Text style={styles.selectedName} numberOfLines={1}>
                     {selectedCenter.name}
                   </Text>
+
                   <Text style={styles.address} numberOfLines={1}>
                     {selectedCenter.address}
                   </Text>
@@ -205,11 +237,18 @@ export default function MapScreen() {
                   <Pressable
                     style={styles.detailsLink}
                     onPress={() =>
-                      router.push({ pathname: '/(tabs)/centers', params: { centerId: selectedCenter.id } })
+                      router.push({
+                        pathname: '/(tabs)/centers',
+                        params: { centerId: selectedCenter.id },
+                      })
                     }
                   >
                     <Text style={styles.detailsLinkText}>More</Text>
-                    <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
+                    <Ionicons
+                      name="chevron-forward"
+                      size={14}
+                      color={Colors.primary}
+                    />
                   </Pressable>
                 ) : null}
               </View>
@@ -217,19 +256,38 @@ export default function MapScreen() {
               <View style={styles.divider} />
 
               <View style={styles.routeButtons}>
-                <Pressable style={styles.routeButton} onPress={() => openRoute('apple')}>
-                  <Ionicons name="navigate-outline" size={16} color={Colors.card} />
+                <Pressable
+                  style={styles.routeButton}
+                  onPress={() => openRoute('apple')}
+                >
+                  <Ionicons
+                    name="navigate-outline"
+                    size={16}
+                    color={Colors.card}
+                  />
                   <Text style={styles.routeButtonText}>Apple Maps</Text>
                 </Pressable>
-                <Pressable style={styles.routeButtonSecondary} onPress={() => openRoute('google')}>
-                  <Ionicons name="navigate-outline" size={16} color={Colors.text} />
-                  <Text style={styles.routeButtonSecondaryText}>Google Maps</Text>
+
+                <Pressable
+                  style={styles.routeButtonSecondary}
+                  onPress={() => openRoute('google')}
+                >
+                  <Ionicons
+                    name="navigate-outline"
+                    size={16}
+                    color={Colors.text}
+                  />
+                  <Text style={styles.routeButtonSecondaryText}>
+                    Google Maps
+                  </Text>
                 </Pressable>
               </View>
             </>
           ) : (
             <View style={styles.emptyPanel}>
-              <Text style={styles.emptyPanelText}>Select a pin to view information</Text>
+              <Text style={styles.emptyPanelText}>
+                Select a pin to view information
+              </Text>
             </View>
           )}
         </View>
@@ -243,6 +301,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+
   closeButton: {
     position: 'absolute',
     top: 16,
@@ -257,6 +316,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 1,
   },
+
   mapCard: {
     flex: 1,
     minHeight: 0,
@@ -269,34 +329,27 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
   },
+
   mapWrapper: {
     flex: 1,
     minHeight: 0,
     position: 'relative',
   },
+
   map: {
     flex: 1,
   },
+
   pinShadowWrap: {
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 8,
-    position: 'relative',
+    shadowRadius: 4,
+    elevation: 6,
   },
-  pinCoreBlack: {
-    position: 'absolute',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#111111',
-    top: 7,
-    left: '50%',
-    marginLeft: -4,
-  },
+
   infoPanel: {
     backgroundColor: Colors.card,
     borderTopWidth: 1,
@@ -305,78 +358,86 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 20,
   },
+
   emptyPanel: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
     paddingVertical: 8,
   },
+
   emptyPanelText: {
     color: Colors.textMuted,
     fontSize: 14,
     fontWeight: '500',
   },
+
   selectedHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 12,
   },
+
   selectedTextGroup: {
     flex: 1,
   },
+
   selectedName: {
     color: Colors.text,
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: -0.2,
   },
+
   address: {
     color: Colors.textMuted,
     fontSize: 13,
     marginTop: 3,
   },
+
   detailsLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
     paddingTop: 2,
   },
+
   detailsLinkText: {
     color: Colors.primary,
     fontWeight: '600',
     fontSize: 13,
   },
+
   divider: {
     height: 1,
     backgroundColor: Colors.border,
     marginTop: 16,
   },
+
   routeButtons: {
     flexDirection: 'row',
     gap: 10,
     marginTop: 16,
   },
+
   routeButton: {
     flex: 1,
     flexDirection: 'row',
-    gap: 7,
     backgroundColor: Colors.primary,
     borderRadius: 10,
     paddingVertical: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   routeButtonText: {
     color: Colors.card,
     fontWeight: '600',
     fontSize: 14,
   },
+
   routeButtonSecondary: {
     flex: 1,
     flexDirection: 'row',
-    gap: 7,
     backgroundColor: Colors.card,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -385,9 +446,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   routeButtonSecondaryText: {
     color: Colors.text,
     fontWeight: '600',
     fontSize: 14,
   },
 });
+

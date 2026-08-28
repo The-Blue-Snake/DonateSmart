@@ -2,13 +2,23 @@ import { Colors, Spacing } from '@/constants/theme';
 import type { DonationCenter, PhotoSource } from '@/constants/types';
 import { getCenters } from '@/data/donationCenters';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import * as Location from 'expo-location';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  router,
+  useFocusEffect,
+  useLocalSearchParams,
+} from 'expo-router';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   Animated,
   Dimensions,
-  Image,
   Platform,
   Pressable,
   StyleSheet,
@@ -42,7 +52,8 @@ type CarouselItem =
       distance: number | null;
     };
 
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } =
+  Dimensions.get('window');
 
 const HORIZONTAL_PADDING = Spacing.screen;
 const CARD_WIDTH = SCREEN_WIDTH - HORIZONTAL_PADDING * 2;
@@ -91,6 +102,7 @@ const distanceBetween = (
   second: Location.LocationGeocodedLocation,
 ) => {
   const latitudeDelta = (first.latitude - second.latitude) * (Math.PI / 180);
+
   const longitudeDelta =
     (first.longitude - second.longitude) * (Math.PI / 180);
 
@@ -103,9 +115,7 @@ const distanceBetween = (
       Math.cos(firstLatitude) *
       Math.cos(secondLatitude);
 
-  return (
-    3958.8 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value))
-  );
+  return 3958.8 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
 };
 
 export default function CentersList() {
@@ -122,11 +132,13 @@ export default function CentersList() {
 
   const [centers, setCenters] = useState<DonationCenter[]>([]);
   const [query, setQuery] = useState('');
+
   const [distances, setDistances] = useState<Record<string, number | null>>(
     {},
   );
 
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+
   const [expandedCenter, setExpandedCenter] =
     useState<CenterWithDistance | null>(null);
 
@@ -250,8 +262,13 @@ export default function CentersList() {
         );
       }
 
-      if (first.distance === null) return 1;
-      if (second.distance === null) return -1;
+      if (first.distance === null) {
+        return 1;
+      }
+
+      if (second.distance === null) {
+        return -1;
+      }
 
       return first.distance - second.distance;
     });
@@ -298,8 +315,43 @@ export default function CentersList() {
     expansionProgress,
   ]);
 
-  const resolvePhotoSource = (photo: PhotoSource) =>
-    typeof photo === 'string' ? { uri: photo } : photo;
+  const resolvePhotoSource = (photo: PhotoSource) => {
+    if (typeof photo === 'string') {
+      return {
+        uri: photo,
+        cacheKey: photo,
+      };
+    }
+
+    return photo;
+  };
+
+  const getPhotoUri = (photo: PhotoSource | undefined) => {
+    if (!photo || typeof photo !== 'string') {
+      return null;
+    }
+
+    return photo;
+  };
+
+  useEffect(() => {
+    const activeItem = carouselItems[activeIndex];
+
+    if (activeItem?.type !== 'center') {
+      return;
+    }
+
+    const photo = activeItem.center.photos?.[0];
+    const imageUri = getPhotoUri(photo);
+
+    if (!imageUri) {
+      return;
+    }
+
+    Image.prefetch(imageUri, 'memory-disk').catch(() => {
+      // An unavailable image should not affect the rest of the screen.
+    });
+  }, [activeIndex, carouselItems]);
 
   const getItemLayout = (
     _data: ArrayLike<CarouselItem> | null | undefined,
@@ -328,7 +380,15 @@ export default function CentersList() {
       return;
     }
 
-    // Always start the expansion from a completely collapsed state.
+    const photo = item.center.photos?.[0];
+    const imageUri = getPhotoUri(photo);
+
+    if (imageUri) {
+      Image.prefetch(imageUri, 'memory-disk').catch(() => {
+        // The component still renders normally if prefetch fails.
+      });
+    }
+
     expansionProgress.stopAnimation();
     expansionProgress.setValue(0);
 
@@ -339,8 +399,6 @@ export default function CentersList() {
 
     setExpandedIndex(index);
 
-    // Give React one frame to mount the expanded layer.
-    // Then fade between the two layers.
     requestAnimationFrame(() => {
       Animated.timing(expansionProgress, {
         toValue: 1,
@@ -391,7 +449,6 @@ export default function CentersList() {
           placeholderTextColor={Colors.textMuted}
           autoCapitalize="words"
           autoCorrect={false}
-          clearButtonMode="while-editing"
           returnKeyType="search"
         />
 
@@ -428,6 +485,10 @@ export default function CentersList() {
           <Image
             source={resolvePhotoSource(photo)}
             style={styles.collapsedPhoto}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            priority="low"
+            transition={150}
           />
         ) : (
           <View style={styles.photoFallback}>
@@ -454,6 +515,7 @@ export default function CentersList() {
                   size={11}
                   color="#FFFFFF"
                 />
+
                 <Text style={styles.distanceText}>
                   {distance.toFixed(1)} mi
                 </Text>
@@ -512,6 +574,10 @@ export default function CentersList() {
             <Image
               source={resolvePhotoSource(photo)}
               style={styles.expandedPhoto}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              priority="high"
+              transition={150}
             />
           ) : (
             <View style={styles.expandedFallback}>
@@ -533,11 +599,7 @@ export default function CentersList() {
             onPress={closeExpandedCenter}
             hitSlop={8}
           >
-            <Ionicons
-              name="close"
-              size={20}
-              color="#FFFFFF"
-            />
+            <Ionicons name="close" size={20} color="#FFFFFF" />
           </Pressable>
 
           {distance !== null ? (
@@ -566,10 +628,7 @@ export default function CentersList() {
                 color="rgba(255,255,255,0.9)"
               />
 
-              <Text
-                style={styles.expandedAddress}
-                numberOfLines={2}
-              >
+              <Text style={styles.expandedAddress} numberOfLines={2}>
                 {center.address}
               </Text>
             </View>
@@ -719,16 +778,13 @@ export default function CentersList() {
       outputRange: [18, 24],
     });
 
-    // Both layers stay mounted during the expansion.
-    // This creates a true crossfade instead of the expanded content
-    // appearing after the animation has already started.
     const collapsedOpacity = expansionProgress.interpolate({
-      inputRange: [0, 0.45, 1],
+      inputRange: [0, 0.25, 1],
       outputRange: [1, 0, 0],
     });
 
     const expandedContentOpacity = expansionProgress.interpolate({
-      inputRange: [0, 0.45, 1],
+      inputRange: [0, 0.25, 1],
       outputRange: [0, 0, 1],
     });
 
@@ -767,13 +823,13 @@ export default function CentersList() {
               {isExpanded ? (
                 <>
                   <Animated.View
+                    pointerEvents="none"
                     style={[
                       StyleSheet.absoluteFill,
                       {
                         opacity: collapsedOpacity,
                       },
                     ]}
-                    pointerEvents="none"
                   >
                     {renderCollapsedCenterCard(
                       item.center,
@@ -819,10 +875,7 @@ export default function CentersList() {
         : 'No donation centers are available yet.';
 
   return (
-    <SafeAreaView
-      style={styles.container}
-      edges={['top']}
-    >
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.listArea}>
         <Animated.FlatList
           ref={listRef}
@@ -830,6 +883,11 @@ export default function CentersList() {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           getItemLayout={getItemLayout}
+          initialNumToRender={4}
+          maxToRenderPerBatch={4}
+          updateCellsBatchingPeriod={50}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
           showsVerticalScrollIndicator={false}
           snapToInterval={ITEM_HEIGHT}
           snapToAlignment="start"
@@ -840,9 +898,7 @@ export default function CentersList() {
           onMomentumScrollEnd={(event) => {
             const offsetY = event.nativeEvent.contentOffset.y;
 
-            setActiveIndex(
-              Math.round(offsetY / ITEM_HEIGHT),
-            );
+            setActiveIndex(Math.round(offsetY / ITEM_HEIGHT));
           }}
           onScroll={Animated.event(
             [
@@ -861,12 +917,9 @@ export default function CentersList() {
                   return;
                 }
 
-                const offsetY =
-                  event.nativeEvent.contentOffset.y;
+                const offsetY = event.nativeEvent.contentOffset.y;
 
-                const nextIndex = Math.round(
-                  offsetY / ITEM_HEIGHT,
-                );
+                const nextIndex = Math.round(offsetY / ITEM_HEIGHT);
 
                 if (nextIndex !== activeIndex) {
                   setActiveIndex(nextIndex);
@@ -884,9 +937,7 @@ export default function CentersList() {
                 color={Colors.textMuted}
               />
 
-              <Text style={styles.empty}>
-                {emptyMessage}
-              </Text>
+              <Text style={styles.empty}>{emptyMessage}</Text>
             </View>
           }
         />
@@ -1015,7 +1066,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
 
   photoFallback: {
@@ -1135,7 +1185,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
 
   expandedFallback: {
