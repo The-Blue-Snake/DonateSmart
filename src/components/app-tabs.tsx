@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useAppTabNavigation } from './app-tab-navigation';
+import { useAppTabNavigation, type AppTabKey } from './app-tab-navigation';
 import CentersList from '../app/(tabs)/centers';
 import Home from '../app/(tabs)/index';
 import MapScreen from '../app/(tabs)/map';
@@ -13,11 +13,11 @@ import MapScreen from '../app/(tabs)/map';
 type IconName = keyof typeof Ionicons.glyphMap;
 
 const TABS: {
-  key: string;
+  key: AppTabKey;
   label: string;
   icon: IconName;
   iconFocused: IconName;
-  Component: React.ComponentType;
+  Component: React.ComponentType<any>;
 }[] = [
   { key: 'index', label: 'Donate', icon: 'home-outline', iconFocused: 'home', Component: Home },
   { key: 'centers', label: 'Centers', icon: 'location-outline', iconFocused: 'location', Component: CentersList },
@@ -28,7 +28,7 @@ export default function AppTabs() {
   const insets = useSafeAreaInsets();
   const pagerRef = useRef<PagerView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
-  const { currentTab, currentTabParams, navigateToTab } = useAppTabNavigation();
+  const { currentTab, tabParams, navigateToTab } = useAppTabNavigation();
 
   const goToPage = useCallback((index: number) => {
     pagerRef.current?.setPage(index);
@@ -53,20 +53,20 @@ export default function AppTabs() {
           const selectedTab = TABS[e.nativeEvent.position];
 
           if (selectedTab) {
-            navigateToTab(selectedTab.key as any);
+            navigateToTab(selectedTab.key);
           }
         }}
       >
         {TABS.map(({ key, Component }) => {
           const TabComponent = Component as any;
-          const props =
-            currentTab === key
-              ? { tabParams: currentTabParams }
-              : undefined;
 
+          // Each page always gets its own tab's params directly, regardless
+          // of which tab is currently "active" — so the page shows the
+          // right content immediately on swipe, without waiting for
+          // onPageSelected to update currentTab.
           return (
             <View key={key} style={styles.page}>
-              <TabComponent {...props} />
+              <TabComponent tabParams={tabParams[key]} />
             </View>
           );
         })}
@@ -79,7 +79,7 @@ export default function AppTabs() {
             <Pressable
               key={key}
               onPress={() => {
-                navigateToTab(key as any);
+                navigateToTab(key);
                 goToPage(index);
               }}
               style={styles.tab}

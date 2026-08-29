@@ -1,4 +1,3 @@
-
 import {
   createContext,
   useCallback,
@@ -26,7 +25,9 @@ type TabParams = Record<AppTabKey, AppTabParams>;
 type AppTabNavigationContextValue = {
   currentTab: AppTabKey;
   currentTabParams: AppTabParams;
+  tabParams: TabParams;
   navigateToTab: (tab: AppTabKey, params?: AppTabParams) => void;
+  resetTabParams: (tab: AppTabKey) => void;
 };
 
 const AppTabNavigationContext =
@@ -50,16 +51,43 @@ export function AppTabNavigationProvider({
     (tab: AppTabKey, params?: AppTabParams) => {
       setCurrentTab(tab);
 
-      setTabParams((previous) => ({
-        ...previous,
-        [tab]: params === undefined ? {} : {
-          ...previous[tab],
-          ...params,
-        },
-      }));
+      setTabParams((previous) => {
+        if (params === undefined) {
+          // Centers keeps its existing filters when no params are passed
+          // (e.g. switching tabs via swipe or the tab bar). All other tabs
+          // reset to default, as before.
+          if (tab === 'centers') {
+            return previous;
+          }
+
+          return {
+            ...previous,
+            [tab]: {},
+          };
+        }
+
+        return {
+          ...previous,
+          [tab]: {
+            ...previous[tab],
+            ...params,
+          },
+        };
+      });
     },
     [],
   );
+
+  // Explicit reset, independent of navigateToTab's merge-vs-preserve logic.
+  // Use this whenever you actually want to clear a tab's params (e.g. the
+  // "X" button on an active filter), rather than relying on navigateToTab
+  // with no params.
+  const resetTabParams = useCallback((tab: AppTabKey) => {
+    setTabParams((previous) => ({
+      ...previous,
+      [tab]: {},
+    }));
+  }, []);
 
   const currentTabParams = tabParams[currentTab];
 
@@ -67,9 +95,17 @@ export function AppTabNavigationProvider({
     () => ({
       currentTab,
       currentTabParams,
+      tabParams,
       navigateToTab,
+      resetTabParams,
     }),
-    [currentTab, currentTabParams, navigateToTab],
+    [
+      currentTab,
+      currentTabParams,
+      tabParams,
+      navigateToTab,
+      resetTabParams,
+    ],
   );
 
   return (
@@ -90,4 +126,3 @@ export function useAppTabNavigation() {
 
   return context;
 }
-

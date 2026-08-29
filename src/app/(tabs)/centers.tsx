@@ -424,8 +424,7 @@ export default function CentersList({
   const params =
     useLocalSearchParams<RouteParams>();
 
-  const { navigateToTab } =
-    useAppTabNavigation();
+const { navigateToTab, resetTabParams } = useAppTabNavigation();
 
   const mergedParams = {
     ...params,
@@ -1055,16 +1054,13 @@ export default function CentersList({
             </View>
 
             <Pressable
-              style={({ pressed }) => [
-                styles.resultContextClearButton,
-                pressed &&
-                  styles.resultContextClearButtonPressed,
-              ]}
-              onPress={() =>
-                navigateToTab('centers')
-              }
-              hitSlop={8}
-            >
+                style={({ pressed }) => [
+                  styles.resultContextClearButton,
+                  pressed && styles.resultContextClearButtonPressed,
+                ]}
+                onPress={() => resetTabParams('centers')}
+                hitSlop={8}
+              >
               <Ionicons
                 name="close-circle"
                 size={20}
