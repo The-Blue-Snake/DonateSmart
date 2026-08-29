@@ -1,10 +1,11 @@
 import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useAppTabNavigation } from './app-tab-navigation';
 import CentersList from '../app/(tabs)/centers';
 import Home from '../app/(tabs)/index';
 import MapScreen from '../app/(tabs)/map';
@@ -27,10 +28,19 @@ export default function AppTabs() {
   const insets = useSafeAreaInsets();
   const pagerRef = useRef<PagerView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const { currentTab, currentTabParams, navigateToTab } = useAppTabNavigation();
 
   const goToPage = useCallback((index: number) => {
     pagerRef.current?.setPage(index);
   }, []);
+
+  useEffect(() => {
+    const nextIndex = TABS.findIndex((tab) => tab.key === currentTab);
+
+    if (nextIndex >= 0 && nextIndex !== activeIndex) {
+      pagerRef.current?.setPage(nextIndex);
+    }
+  }, [activeIndex, currentTab]);
 
   return (
     <View style={styles.container}>
@@ -38,13 +48,28 @@ export default function AppTabs() {
         ref={pagerRef}
         style={styles.pager}
         initialPage={0}
-        onPageSelected={(e) => setActiveIndex(e.nativeEvent.position)}
+        onPageSelected={(e) => {
+          setActiveIndex(e.nativeEvent.position);
+          const selectedTab = TABS[e.nativeEvent.position];
+
+          if (selectedTab) {
+            navigateToTab(selectedTab.key as any);
+          }
+        }}
       >
-        {TABS.map(({ key, Component }) => (
-          <View key={key} style={styles.page}>
-            <Component />
-          </View>
-        ))}
+        {TABS.map(({ key, Component }) => {
+          const TabComponent = Component as any;
+          const props =
+            currentTab === key
+              ? { tabParams: currentTabParams }
+              : undefined;
+
+          return (
+            <View key={key} style={styles.page}>
+              <TabComponent {...props} />
+            </View>
+          );
+        })}
       </PagerView>
 
       <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
@@ -53,7 +78,10 @@ export default function AppTabs() {
           return (
             <Pressable
               key={key}
-              onPress={() => goToPage(index)}
+              onPress={() => {
+                navigateToTab(key as any);
+                goToPage(index);
+              }}
               style={styles.tab}
               hitSlop={{ top: 8, bottom: 8 }}
             >

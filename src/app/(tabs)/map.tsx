@@ -1,18 +1,24 @@
+import { useAppTabNavigation } from '@/components/app-tab-navigation';
+import { Colors, Spacing } from '@/constants/theme';
+import type { DonationCenter } from '@/constants/types';
+import { getCenters } from '@/data/donationCenters';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, type Region } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Colors, Spacing } from '@/constants/theme';
-import type { DonationCenter } from '@/constants/types';
-import { getCenters } from '@/data/donationCenters';
-
 type Coordinate = {
   latitude: number;
   longitude: number;
+};
+
+type MapScreenProps = {
+  tabParams?: {
+    centerId?: string;
+  };
 };
 
 const MINNEAPOLIS: Region = {
@@ -22,15 +28,26 @@ const MINNEAPOLIS: Region = {
   longitudeDelta: 0.24,
 };
 
-export default function MapScreen() {
+export default function MapScreen({ tabParams }: MapScreenProps = {}) {
   const { centerId } = useLocalSearchParams<{ centerId?: string }>();
-  const focusedCenterId = Array.isArray(centerId) ? centerId[0] : centerId;
+  const { navigateToTab } = useAppTabNavigation();
+
+  const focusedCenterId =
+    tabParams?.centerId ??
+    (Array.isArray(centerId) ? centerId[0] : centerId);
 
   const [centers, setCenters] = useState<DonationCenter[]>([]);
-  const [coordinates, setCoordinates] = useState<Record<string, Coordinate>>({});
-  const [selectedId, setSelectedId] = useState<string | null>(focusedCenterId ?? null);
-  const [mapFocusId, setMapFocusId] = useState<string | null>(focusedCenterId ?? null);
-  const [userLocation, setUserLocation] = useState<Coordinate | null>(null);
+  const [coordinates, setCoordinates] = useState<
+    Record<string, Coordinate>
+  >({});
+  const [selectedId, setSelectedId] = useState<string | null>(
+    focusedCenterId ?? null,
+  );
+  const [mapFocusId, setMapFocusId] = useState<string | null>(
+    focusedCenterId ?? null,
+  );
+  const [userLocation, setUserLocation] =
+    useState<Coordinate | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
   const coordinateCache = useRef<Record<string, Coordinate>>({});
@@ -42,10 +59,21 @@ export default function MapScreen() {
     }, []),
   );
 
+  /*
+   * Only respond to a centerId that was supplied when navigating
+   * to the map from another screen.
+   *
+   * Selecting pins on the map itself does NOT update the router,
+   * so the selection won't persist when returning to Centers.
+   */
   useEffect(() => {
+    if (focusedCenterId === undefined) {
+      return;
+    }
+
     setMapReady(false);
-    setMapFocusId(focusedCenterId ?? null);
-    setSelectedId(focusedCenterId ?? null);
+    setMapFocusId(focusedCenterId);
+    setSelectedId(focusedCenterId);
   }, [focusedCenterId]);
 
   useEffect(() => {
@@ -53,7 +81,9 @@ export default function MapScreen() {
 
     const geocodeCenters = async () => {
       const orderedCenters = mapFocusId
-        ? [...centers].sort((first) => (first.id === mapFocusId ? -1 : 1))
+        ? [...centers].sort((first) =>
+            first.id === mapFocusId ? -1 : 1,
+          )
         : centers;
 
       for (const center of orderedCenters) {
@@ -62,7 +92,9 @@ export default function MapScreen() {
         }
 
         try {
-          const [coordinate] = await Location.geocodeAsync(center.address);
+          const [coordinate] = await Location.geocodeAsync(
+            center.address,
+          );
 
           if (active && coordinate) {
             const resolved = {
@@ -71,6 +103,7 @@ export default function MapScreen() {
             };
 
             coordinateCache.current[center.id] = resolved;
+
             setCoordinates((current) => ({
               ...current,
               [center.id]: resolved,
@@ -109,10 +142,15 @@ export default function MapScreen() {
       .catch(() => undefined);
   }, []);
 
-  const selectedCenter = centers.find((center) => center.id === selectedId);
+  const selectedCenter = centers.find(
+    (center) => center.id === selectedId,
+  );
 
   const markers = centers
-    .filter((center) => !mapFocusId || center.id === mapFocusId)
+    .filter(
+      (center) =>
+        !mapFocusId || center.id === mapFocusId,
+    )
     .filter((center) => coordinates[center.id])
     .map((center) => ({
       center,
@@ -124,7 +162,9 @@ export default function MapScreen() {
       return;
     }
 
-    const marker = markers.find(({ center }) => center.id === mapFocusId);
+    const marker = markers.find(
+      ({ center }) => center.id === mapFocusId,
+    );
 
     if (marker) {
       mapRef.current?.animateToRegion(
@@ -136,28 +176,46 @@ export default function MapScreen() {
         500,
       );
     }
-  }, [mapFocusId, mapReady, markers, selectedCenter]);
+  }, [
+    mapFocusId,
+    mapReady,
+    markers,
+    selectedCenter,
+  ]);
 
+  /*
+   * Selecting a pin is intentionally LOCAL state only.
+   *
+   * Do not call router.setParams() here. Otherwise the selected
+   * centerId survives when switching back to the Centers tab.
+   */
   const focusOnCenter = (id: string) => {
     setMapReady(false);
     setSelectedId(id);
     setMapFocusId(id);
-    router.setParams({ centerId: id });
   };
 
+  /*
+   * Return the map to showing all centers.
+   *
+   * Again, this only changes local map state.
+   */
   const showAllCenters = () => {
     setMapReady(false);
     setSelectedId(null);
     setMapFocusId(null);
-    router.setParams({ centerId: undefined });
   };
 
-  const openRoute = async (provider: 'apple' | 'google') => {
+  const openRoute = async (
+    provider: 'apple' | 'google',
+  ) => {
     if (!selectedCenter) {
       return;
     }
 
-    const destination = encodeURIComponent(selectedCenter.address);
+    const destination = encodeURIComponent(
+      selectedCenter.address,
+    );
 
     const url =
       provider === 'apple'
@@ -168,96 +226,100 @@ export default function MapScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView
+      style={styles.container}
+      edges={['top']}
+    >
       <View style={styles.mapCard}>
-        <View style={styles.mapWrapper}>
-          {mapFocusId ? (
-            <Pressable style={styles.closeButton} onPress={showAllCenters}>
-              <Ionicons name="close" size={18} color={Colors.text} />
-            </Pressable>
+        <MapView
+          key={mapFocusId ?? 'all-centers'}
+          ref={mapRef}
+          style={styles.map}
+          initialRegion={MINNEAPOLIS}
+          showsUserLocation={false}
+          onMapReady={() => setMapReady(true)}
+        >
+          {markers.map(({ center, coordinate }) => (
+            <Marker
+              key={center.id}
+              coordinate={coordinate}
+              anchor={{ x: 0.5, y: 1 }}
+              onPress={() => focusOnCenter(center.id)}
+            >
+              <View style={styles.pinShadowWrap}>
+                <Ionicons
+                  name="location-outline"
+                  size={22}
+                  color={Colors.white}
+                />
+              </View>
+            </Marker>
+          ))}
+
+          {userLocation ? (
+            <Marker
+              coordinate={userLocation}
+              anchor={{ x: 0.5, y: 1 }}
+            >
+              <View style={styles.pinShadowWrap}>
+                <Ionicons
+                  name="location-outline"
+                  size={22}
+                  color={Colors.primary}
+                />
+              </View>
+            </Marker>
           ) : null}
+        </MapView>
 
-          <MapView
-            key={mapFocusId ?? 'all-centers'}
-            ref={mapRef}
-            style={styles.map}
-            initialRegion={MINNEAPOLIS}
-            showsUserLocation={false}
-            onMapReady={() => setMapReady(true)}
+        {/* Close button */}
+        {mapFocusId ? (
+          <Pressable
+            style={({ pressed }) => [
+              styles.closeButton,
+              pressed && styles.closeButtonPressed,
+            ]}
+            onPress={showAllCenters}
           >
-            {markers.map(({ center, coordinate }) => (
-              <Marker
-                key={center.id}
-                coordinate={coordinate}
-                anchor={{ x: 0.5, y: 1 }}
-                onPress={() => focusOnCenter(center.id)}
-              >
-                <View style={styles.pinShadowWrap}>
-                  <Ionicons
-                    name="location-outline"
-                    size={22}
-                    color={Colors.white}
-                  />
-                </View>
-              </Marker>
-            ))}
+            <Ionicons
+              name="close"
+              size={18}
+              color={Colors.text}
+            />
+          </Pressable>
+        ) : null}
 
-            {userLocation ? (
-              <Marker
-                coordinate={userLocation}
-                anchor={{ x: 0.5, y: 1 }}
-              >
-                <View style={styles.pinShadowWrap}>
-                  <Ionicons
-                    name="location-outline"
-                    size={22}
-                    color={Colors.primary}
-                  />
-                </View>
-              </Marker>
-            ) : null}
-          </MapView>
-        </View>
-
+        {/* Information popup */}
         <View style={styles.infoPanel}>
           {selectedCenter ? (
             <>
               <View style={styles.selectedHeader}>
                 <View style={styles.selectedTextGroup}>
-                  <Text style={styles.selectedName} numberOfLines={1}>
+                  <Text
+                    style={styles.selectedName}
+                    numberOfLines={1}
+                  >
                     {selectedCenter.name}
                   </Text>
 
-                  <Text style={styles.address} numberOfLines={1}>
+                  <Text
+                    style={styles.address}
+                    numberOfLines={1}
+                  >
                     {selectedCenter.address}
                   </Text>
                 </View>
-
-                {mapFocusId ? (
-                  <Pressable
-                    style={styles.detailsLink}
-                    onPress={() =>
-                      router.push({
-                        pathname: '/(tabs)/centers',
-                        params: { centerId: selectedCenter.id },
-                      })
-                    }
-                  >
-                    <Text style={styles.detailsLinkText}>More</Text>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={14}
-                      color={Colors.primary}
-                    />
-                  </Pressable>
-                ) : null}
               </View>
 
               <View style={styles.divider} />
 
               <View style={styles.routeButtons}>
                 <Pressable
-                  style={styles.routeButton}
+                  style={({ pressed }) => [
+                    styles.routeButton,
+                    pressed &&
+                      styles.routeButtonPressed,
+                  ]}
                   onPress={() => openRoute('apple')}
                 >
                   <Ionicons
@@ -265,11 +327,18 @@ export default function MapScreen() {
                     size={16}
                     color={Colors.card}
                   />
-                  <Text style={styles.routeButtonText}>Apple Maps</Text>
+
+                  <Text style={styles.routeButtonText}>
+                    Apple Maps
+                  </Text>
                 </Pressable>
 
                 <Pressable
-                  style={styles.routeButtonSecondary}
+                  style={({ pressed }) => [
+                    styles.routeButtonSecondary,
+                    pressed &&
+                      styles.routeButtonSecondaryPressed,
+                  ]}
                   onPress={() => openRoute('google')}
                 >
                   <Ionicons
@@ -277,7 +346,12 @@ export default function MapScreen() {
                     size={16}
                     color={Colors.text}
                   />
-                  <Text style={styles.routeButtonSecondaryText}>
+
+                  <Text
+                    style={
+                      styles.routeButtonSecondaryText
+                    }
+                  >
                     Google Maps
                   </Text>
                 </Pressable>
@@ -302,67 +376,95 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
 
-  closeButton: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1,
-  },
-
   mapCard: {
     flex: 1,
     minHeight: 0,
     marginTop: 4,
     marginBottom: 20,
     marginHorizontal: Spacing.screen,
-    backgroundColor: Colors.card,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: 14,
-    overflow: 'hidden',
-  },
-
-  mapWrapper: {
-    flex: 1,
-    minHeight: 0,
-    position: 'relative',
+    backgroundColor: Colors.card,
   },
 
   map: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  closeButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.card,
+
+    shadowColor: '#000000',
+    shadowOpacity: 0.12,
+    shadowRadius: 7,
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+
+    elevation: 4,
+  },
+
+  closeButtonPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.95 }],
   },
 
   pinShadowWrap: {
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
     shadowOpacity: 0.35,
     shadowRadius: 4,
     elevation: 6,
   },
 
   infoPanel: {
+    position: 'absolute',
+    right: 10,
+    bottom: 10,
+    left: 10,
+
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 16,
+
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 16,
     backgroundColor: Colors.card,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    paddingHorizontal: Spacing.screen,
-    paddingTop: 18,
-    paddingBottom: 20,
+
+    shadowColor: '#000000',
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+
+    elevation: 7,
   },
 
   emptyPanel: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    minHeight: 48,
   },
 
   emptyPanelText: {
@@ -380,6 +482,7 @@ const styles = StyleSheet.create({
 
   selectedTextGroup: {
     flex: 1,
+    minWidth: 0,
   },
 
   selectedName: {
@@ -395,62 +498,61 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
 
-  detailsLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 2,
-  },
-
-  detailsLinkText: {
-    color: Colors.primary,
-    fontWeight: '600',
-    fontSize: 13,
-  },
-
   divider: {
     height: 1,
+    marginTop: 14,
     backgroundColor: Colors.border,
-    marginTop: 16,
   },
 
   routeButtons: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 16,
+    marginTop: 14,
   },
 
   routeButton: {
     flex: 1,
+    minHeight: 44,
     flexDirection: 'row',
-    backgroundColor: Colors.primary,
-    borderRadius: 10,
-    paddingVertical: 13,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 7,
+    borderRadius: 11,
+    backgroundColor: Colors.primary,
+  },
+
+  routeButtonPressed: {
+    opacity: 0.84,
+    transform: [{ scale: 0.985 }],
   },
 
   routeButtonText: {
     color: Colors.card,
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 13.5,
   },
 
   routeButtonSecondary: {
     flex: 1,
+    minHeight: 44,
     flexDirection: 'row',
-    backgroundColor: Colors.card,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 10,
-    paddingVertical: 13,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 7,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 11,
+    backgroundColor: Colors.card,
+  },
+
+  routeButtonSecondaryPressed: {
+    opacity: 0.65,
+    transform: [{ scale: 0.985 }],
   },
 
   routeButtonSecondaryText: {
     color: Colors.text,
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 13.5,
   },
 });
-

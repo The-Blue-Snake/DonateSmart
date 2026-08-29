@@ -1,3 +1,4 @@
+
 import { Colors, Spacing } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -29,12 +30,7 @@ export default function Home() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.title}>What are you donating?</Text>
-          <View style={styles.headerDivider} />
-        </View>
-
-        <View style={styles.list}>
+        <View style={styles.card}>
           {OPTIONS.map(({ title, description, icon, route }, index) => (
             <Pressable
               key={title}
@@ -46,15 +42,28 @@ export default function Home() {
               onPress={() => router.push(route)}
             >
               <View style={styles.iconChip}>
-                <Ionicons name={icon} size={20} color={Colors.primary} />
+                <Ionicons
+                  name={icon}
+                  size={21}
+                  color={Colors.primary}
+                />
               </View>
 
               <View style={styles.rowText}>
                 <Text style={styles.rowTitle}>{title}</Text>
-                <Text style={styles.rowDescription}>{description}</Text>
+
+                <Text style={styles.rowDescription}>
+                  {description}
+                </Text>
               </View>
 
-              <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+              <View style={styles.chevron}>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={Colors.textMuted}
+                />
+              </View>
             </Pressable>
           ))}
         </View>
@@ -68,68 +77,87 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+
   content: {
     flex: 1,
     paddingHorizontal: Spacing.screen,
+    justifyContent: 'center',
   },
-  header: {
-    paddingTop: 10,
-    paddingBottom: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '600',
-    color: Colors.text,
-    letterSpacing: -0.4,
-  },
-  headerDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
-    marginTop: 12,
-    marginHorizontal: -Spacing.screen,
-  },
-  list: {
-    backgroundColor: Colors.card,
+
+  card: {
+    width: '100%',
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: 14,
-    overflow: 'hidden',
+    borderRadius: 16,
+    backgroundColor: Colors.card,
+
+    shadowColor: '#000000',
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+
+    elevation: 6,
   },
+
   row: {
+    minHeight: 132,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 18,
     paddingVertical: 22,
-    paddingHorizontal: 16,
-    gap: 14,
+    gap: 15,
   },
+
   rowDivider: {
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
+
   rowPressed: {
     backgroundColor: Colors.background,
   },
+
   iconChip: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    width: 46,
+    height: 46,
+    flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    backgroundColor: Colors.background,
   },
+
   rowText: {
     flex: 1,
+    minWidth: 0,
   },
+
   rowTitle: {
-    fontSize: 15,
-    fontWeight: '600',
     color: Colors.text,
-    marginBottom: 3,
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    marginBottom: 5,
   },
+
   rowDescription: {
-    fontSize: 13,
     color: Colors.textMuted,
-    lineHeight: 18,
+    fontSize: 13.5,
+    lineHeight: 19,
+    fontWeight: '500',
+  },
+
+  chevron: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
 });

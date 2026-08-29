@@ -1,8 +1,14 @@
-import { Colors } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function PhotoScan() {
@@ -17,14 +23,30 @@ export default function PhotoScan() {
   if (!permission.granted) {
     return (
       <SafeAreaView style={styles.permissionContainer}>
-        <Text style={styles.permissionTitle}>Camera access needed</Text>
-        <Text style={styles.permissionMessage}>
-          DonateSmart uses your camera to help identify items without barcodes.
-        </Text>
+        <View style={styles.permissionCard}>
+          <View style={styles.permissionIcon}>
+            <Text style={styles.permissionIconText}>⌾</Text>
+          </View>
 
-        <Pressable style={styles.primaryButton} onPress={requestPermission}>
-          <Text style={styles.primaryButtonText}>Enable Camera</Text>
-        </Pressable>
+          <View style={styles.permissionContent}>
+            <Text style={styles.permissionTitle}>Camera access needed</Text>
+
+            <Text style={styles.permissionMessage}>
+              DonateSmart uses your camera to help identify items without
+              barcodes.
+            </Text>
+          </View>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.primaryButton,
+              pressed && styles.primaryButtonPressed,
+            ]}
+            onPress={requestPermission}
+          >
+            <Text style={styles.primaryButtonText}>Enable Camera</Text>
+          </Pressable>
+        </View>
       </SafeAreaView>
     );
   }
@@ -36,7 +58,10 @@ export default function PhotoScan() {
     await new Promise((resolve) => setTimeout(resolve, 1200));
 
     setIsAnalyzing(false);
-    router.replace({ pathname: '/manual-entry', params: { prefill: '' } });
+    router.replace({
+      pathname: '/manual-entry',
+      params: { prefill: '' },
+    });
   };
 
   return (
@@ -46,11 +71,20 @@ export default function PhotoScan() {
       {isAnalyzing ? (
         <View style={styles.analyzingOverlay}>
           <ActivityIndicator size="large" color={Colors.white} />
+
           <Text style={styles.analyzingText}>Identifying item…</Text>
         </View>
       ) : (
         <View style={styles.captureBar}>
-          <Pressable style={styles.captureButton} onPress={handleCapture} />
+          <Pressable
+            style={({ pressed }) => [
+              styles.captureButton,
+              pressed && styles.captureButtonPressed,
+            ]}
+            onPress={handleCapture}
+          >
+            <View style={styles.captureButtonInner} />
+          </Pressable>
         </View>
       )}
     </View>
@@ -62,55 +96,119 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
+
   camera: {
     flex: 1,
   },
+
   permissionContainer: {
     flex: 1,
     backgroundColor: Colors.background,
     justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: Spacing.screen,
   },
+
+  permissionCard: {
+    width: '100%',
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 14,
+    padding: 22,
+  },
+
+  permissionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+
+  permissionIconText: {
+    color: Colors.primary,
+    fontSize: 27,
+    lineHeight: 30,
+    fontWeight: '400',
+  },
+
+  permissionContent: {
+    paddingBottom: 22,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+
   permissionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    marginBottom: 8,
-    textAlign: 'center',
+    letterSpacing: -0.3,
     color: Colors.text,
+    marginBottom: 7,
   },
+
   permissionMessage: {
-    fontSize: 15,
+    fontSize: 14,
     color: Colors.textMuted,
-    textAlign: 'center',
-    lineHeight: 21,
-    marginBottom: 28,
+    lineHeight: 20,
   },
+
   primaryButton: {
-    backgroundColor: Colors.text,
-    paddingVertical: 16,
-    borderRadius: 14,
+    minHeight: 50,
+    marginTop: 18,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.background,
     alignItems: 'center',
-    paddingHorizontal: 32,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
+
+  primaryButtonPressed: {
+    backgroundColor: Colors.card,
+    transform: [{ scale: 0.985 }],
+  },
+
   primaryButtonText: {
-    color: Colors.card,
-    fontSize: 16,
+    color: Colors.text,
+    fontSize: 15,
     fontWeight: '600',
   },
+
   captureBar: {
     position: 'absolute',
-    bottom: 40,
+    bottom: 38,
     alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+
   captureButton: {
-    width: 74,
-    height: 74,
-    borderRadius: 37,
-    backgroundColor: Colors.accent,
-    borderWidth: 5,
-    borderColor: Colors.accentDark,
+    width: 72,
+    height: 72,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+
+  captureButtonInner: {
+    width: 54,
+    height: 54,
+    borderRadius: 13,
+    backgroundColor: '#FFFFFF',
+  },
+
+  captureButtonPressed: {
+    opacity: 0.72,
+    transform: [{ scale: 0.94 }],
+  },
+
   analyzingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.6)',
@@ -118,9 +216,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
+
   analyzingText: {
-    color: Colors.text,
+    color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
   },
 });
+
