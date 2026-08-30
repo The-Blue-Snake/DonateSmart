@@ -6,7 +6,6 @@ import * as Location from 'expo-location';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  InteractionManager,
   Linking,
   Pressable,
   StyleSheet,
@@ -14,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import MapView, { Marker, type Region } from 'react-native-maps';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Coordinate = {
   latitude: number;
@@ -40,6 +39,7 @@ export default function MapScreen({
   isActive = true,
 }: MapScreenProps = {}) {
   const { centerId } = useLocalSearchParams<{ centerId?: string }>();
+  const insets = useSafeAreaInsets();
 
   const focusedCenterId =
     tabParams?.centerId ??
@@ -63,35 +63,27 @@ export default function MapScreen({
   const coordinateCache = useRef<Record<string, Coordinate>>({});
   const mapRef = useRef<MapView>(null);
   const visibleRegion = useRef<Region>(MINNEAPOLIS);
-  const mapLayout = useRef({ width: 0, height: 0 });
-
-  const recoverMapLayout = useCallback((force = false) => {
-    if ((!mapReady && !force) || !mapRef.current) {
-      return;
-    }
-
-    InteractionManager.runAfterInteractions(() => {
-      mapRef.current?.animateToRegion(
-        visibleRegion.current,
-        0,
-      );
-    });
-  }, [mapReady]);
-
-  useEffect(() => {
-    if (!isActive) {
-      return;
-    }
-
-    setMarkerRenderVersion((current) => current + 1);
-    recoverMapLayout();
-  }, [isActive, recoverMapLayout]);
 
   useFocusEffect(
     useCallback(() => {
       getCenters().then(setCenters);
     }, []),
   );
+
+  /*
+   * Force marker remount when the map becomes active.
+   *
+   * This keeps the existing marker redraw fix without trying
+   * to reposition the entire MapView during the navigation
+   * transition.
+   */
+  useEffect(() => {
+    if (!isActive) {
+      return;
+    }
+
+    setMarkerRenderVersion((current) => current + 1);
+  }, [isActive]);
 
   /*
    * Only respond to a centerId that was supplied when navigating
@@ -257,9 +249,13 @@ export default function MapScreen({
   };
 
   return (
-    <SafeAreaView
-      style={styles.container}
-      edges={['top']}
+    <View
+      style={[
+        styles.container,
+        {
+          paddingTop: insets.top,
+        },
+      ]}
     >
       <View style={styles.mapCard}>
         <MapView
@@ -270,20 +266,6 @@ export default function MapScreen({
           removeClippedSubviews={false}
           onMapReady={() => {
             setMapReady(true);
-            recoverMapLayout(true);
-          }}
-          onLayout={(event) => {
-            const { width, height } = event.nativeEvent.layout;
-
-            if (
-              width === mapLayout.current.width &&
-              height === mapLayout.current.height
-            ) {
-              return;
-            }
-
-            mapLayout.current = { width, height };
-            recoverMapLayout();
           }}
           onRegionChangeComplete={(region) => {
             visibleRegion.current = region;
@@ -417,7 +399,7 @@ export default function MapScreen({
           )}
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
