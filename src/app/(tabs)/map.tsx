@@ -24,7 +24,6 @@ type MapScreenProps = {
   tabParams?: {
     centerId?: string;
   };
-  isActive?: boolean;
 };
 
 const MINNEAPOLIS: Region = {
@@ -36,7 +35,6 @@ const MINNEAPOLIS: Region = {
 
 export default function MapScreen({
   tabParams,
-  isActive = true,
 }: MapScreenProps = {}) {
   const { centerId } = useLocalSearchParams<{ centerId?: string }>();
   const insets = useSafeAreaInsets();
@@ -57,33 +55,14 @@ export default function MapScreen({
   );
   const [userLocation, setUserLocation] =
     useState<Coordinate | null>(null);
-  const [mapReady, setMapReady] = useState(false);
-  const [markerRenderVersion, setMarkerRenderVersion] = useState(0);
-
   const coordinateCache = useRef<Record<string, Coordinate>>({});
   const mapRef = useRef<MapView>(null);
-  const visibleRegion = useRef<Region>(MINNEAPOLIS);
 
   useFocusEffect(
     useCallback(() => {
       getCenters().then(setCenters);
     }, []),
   );
-
-  /*
-   * Force marker remount when the map becomes active.
-   *
-   * This keeps the existing marker redraw fix without trying
-   * to reposition the entire MapView during the navigation
-   * transition.
-   */
-  useEffect(() => {
-    if (!isActive) {
-      return;
-    }
-
-    setMarkerRenderVersion((current) => current + 1);
-  }, [isActive]);
 
   /*
    * Only respond to a centerId that was supplied when navigating
@@ -182,31 +161,16 @@ export default function MapScreen({
       coordinate: coordinates[center.id],
     }));
 
-  useEffect(() => {
-    if (!mapReady || !mapFocusId || !selectedCenter) {
-      return;
-    }
-
-    const marker = markers.find(
-      ({ center }) => center.id === mapFocusId,
-    );
-
-    if (marker) {
-      mapRef.current?.animateToRegion(
-        {
-          ...marker.coordinate,
-          latitudeDelta: 0.025,
-          longitudeDelta: 0.025,
-        },
-        500,
-      );
-    }
-  }, [
-    mapFocusId,
-    mapReady,
-    markers,
-    selectedCenter,
-  ]);
+  const focusedCoordinate = mapFocusId
+    ? coordinates[mapFocusId]
+    : undefined;
+  const mapInitialRegion: Region = focusedCoordinate
+    ? {
+        ...focusedCoordinate,
+        latitudeDelta: 0.025,
+        longitudeDelta: 0.025,
+      }
+    : MINNEAPOLIS;
 
   /*
    * Selecting a pin is intentionally LOCAL state only.
@@ -259,21 +223,16 @@ export default function MapScreen({
     >
       <View style={styles.mapCard}>
         <MapView
+          key={`${mapFocusId ?? 'all-centers'}-${focusedCoordinate?.latitude ?? ''}-${focusedCoordinate?.longitude ?? ''}`}
           ref={mapRef}
           style={styles.map}
-          initialRegion={MINNEAPOLIS}
+          initialRegion={mapInitialRegion}
           showsUserLocation={false}
           removeClippedSubviews={false}
-          onMapReady={() => {
-            setMapReady(true);
-          }}
-          onRegionChangeComplete={(region) => {
-            visibleRegion.current = region;
-          }}
         >
           {markers.map(({ center, coordinate }) => (
             <Marker
-              key={`${center.id}-${markerRenderVersion}`}
+              key={center.id}
               coordinate={coordinate}
               anchor={{ x: 0.5, y: 1 }}
               onPress={() => focusOnCenter(center.id)}
@@ -290,7 +249,7 @@ export default function MapScreen({
 
           {userLocation ? (
             <Marker
-              key={`user-location-${markerRenderVersion}`}
+              key="user-location"
               coordinate={userLocation}
               anchor={{ x: 0.5, y: 1 }}
             >

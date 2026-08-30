@@ -57,7 +57,7 @@ export default function AppTabs() {
           }
         }}
       >
-        {TABS.map(({ key, Component }, index) => {
+        {TABS.map(({ key, Component }) => {
           const TabComponent = Component as any;
 
           // Each page always gets its own tab's params directly, regardless
@@ -68,7 +68,6 @@ export default function AppTabs() {
             <View key={key} style={styles.page}>
               <TabComponent
                 tabParams={tabParams[key]}
-                isActive={activeIndex === index}
               />
             </View>
           );
