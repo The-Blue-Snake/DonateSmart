@@ -466,7 +466,15 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
     useState(false);
 
   const [showOpenOnly, setShowOpenOnly] =
-    useState(false);
+    useState(
+      Boolean(selectedCategory || selectedTopLevel),
+    );
+
+  useEffect(() => {
+    setShowOpenOnly(
+      Boolean(selectedCategory || selectedTopLevel),
+    );
+  }, [selectedCategory, selectedTopLevel]);
 
   const [sortMode, setSortMode] =
     useState<SortMode>('nearby');
