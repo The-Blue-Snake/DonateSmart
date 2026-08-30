@@ -281,7 +281,7 @@ const getDaysFromRange = (
   return [...days];
 };
 
-const isLikelyOpenNow = (
+export const isLikelyOpenNow = (
   hoursText: string | undefined,
   now = new Date(),
 ): boolean => {
@@ -457,8 +457,10 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
 
   const [query, setQuery] = useState('');
 
-  const [savedIds, setSavedIds] =
-    useState<Set<string>>(new Set());
+  const {
+    savedCenterIds: savedIds,
+    toggleSavedCenter,
+  } = useAppTabNavigation();
 
   const [showSavedOnly, setShowSavedOnly] =
     useState(false);
@@ -558,20 +560,6 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
       isMounted = false;
     };
   }, [centers]);
-
-  const toggleSaved = (id: string) => {
-    setSavedIds((current) => {
-      const next = new Set(current);
-
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-
-      return next;
-    });
-  };
 
   const matchesRequestedCategory = (
     acceptedCategory: string,
@@ -1469,7 +1457,7 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
                 styles.savedToggleButtonPressed,
             ]}
             onPress={() =>
-              toggleSaved(center.id)
+              toggleSavedCenter(center.id)
             }
             hitSlop={8}
           >

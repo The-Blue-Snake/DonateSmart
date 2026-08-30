@@ -28,6 +28,8 @@ type AppTabNavigationContextValue = {
   tabParams: TabParams;
   navigateToTab: (tab: AppTabKey, params?: AppTabParams) => void;
   resetTabParams: (tab: AppTabKey) => void;
+  savedCenterIds: Set<string>;
+  toggleSavedCenter: (id: string) => void;
 };
 
 const AppTabNavigationContext =
@@ -46,6 +48,8 @@ export function AppTabNavigationProvider({
     centers: {},
     map: {},
   });
+  const [savedCenterIds, setSavedCenterIds] =
+    useState<Set<string>>(new Set());
 
   const navigateToTab = useCallback(
     (tab: AppTabKey, params?: AppTabParams) => {
@@ -89,6 +93,20 @@ export function AppTabNavigationProvider({
     }));
   }, []);
 
+  const toggleSavedCenter = useCallback((id: string) => {
+    setSavedCenterIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+
+      return next;
+    });
+  }, []);
+
   const currentTabParams = tabParams[currentTab];
 
   const value = useMemo(
@@ -98,6 +116,8 @@ export function AppTabNavigationProvider({
       tabParams,
       navigateToTab,
       resetTabParams,
+      savedCenterIds,
+      toggleSavedCenter,
     }),
     [
       currentTab,
@@ -105,6 +125,8 @@ export function AppTabNavigationProvider({
       tabParams,
       navigateToTab,
       resetTabParams,
+      savedCenterIds,
+      toggleSavedCenter,
     ],
   );
 

@@ -1,4 +1,5 @@
 import { Colors, Spacing } from '@/constants/theme';
+import { useAppTabNavigation } from '@/components/app-tab-navigation';
 import type { DonationCenter } from '@/constants/types';
 import { getCenters } from '@/data/donationCenters';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +15,7 @@ import {
 } from 'react-native';
 import MapView, { Marker, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { isLikelyOpenNow } from './centers';
 
 type Coordinate = {
   latitude: number;
@@ -38,6 +40,9 @@ export default function MapScreen({
 }: MapScreenProps = {}) {
   const { centerId } = useLocalSearchParams<{ centerId?: string }>();
   const insets = useSafeAreaInsets();
+  const {
+    savedCenterIds,
+  } = useAppTabNavigation();
 
   const focusedCenterId =
     tabParams?.centerId ??
@@ -55,6 +60,12 @@ export default function MapScreen({
   );
   const [userLocation, setUserLocation] =
     useState<Coordinate | null>(null);
+  const [showSavedOnly, setShowSavedOnly] =
+    useState(false);
+  const [showOpenOnly, setShowOpenOnly] =
+    useState(false);
+  const [mapRenderVersion, setMapRenderVersion] =
+    useState(0);
   const coordinateCache = useRef<Record<string, Coordinate>>({});
   const mapRef = useRef<MapView>(null);
 
@@ -155,6 +166,16 @@ export default function MapScreen({
       (center) =>
         !mapFocusId || center.id === mapFocusId,
     )
+    .filter(
+      (center) =>
+        !showSavedOnly ||
+        savedCenterIds.has(center.id),
+    )
+    .filter(
+      (center) =>
+        !showOpenOnly ||
+        isLikelyOpenNow(center.hours),
+    )
     .filter((center) => coordinates[center.id])
     .map((center) => ({
       center,
@@ -193,6 +214,20 @@ export default function MapScreen({
     setMapFocusId(null);
   };
 
+  const toggleMapFilter = (
+    filter: 'saved' | 'open',
+  ) => {
+    if (filter === 'saved') {
+      setShowSavedOnly((current) => !current);
+    } else {
+      setShowOpenOnly((current) => !current);
+    }
+
+    setSelectedId(null);
+    setMapFocusId(null);
+    setMapRenderVersion((current) => current + 1);
+  };
+
   const openRoute = async (
     provider: 'apple' | 'google',
   ) => {
@@ -223,7 +258,7 @@ export default function MapScreen({
     >
       <View style={styles.mapCard}>
         <MapView
-          key={`${mapFocusId ?? 'all-centers'}-${focusedCoordinate?.latitude ?? ''}-${focusedCoordinate?.longitude ?? ''}`}
+          key={`${mapFocusId ?? 'all-centers'}-${focusedCoordinate?.latitude ?? ''}-${focusedCoordinate?.longitude ?? ''}-${mapRenderVersion}`}
           ref={mapRef}
           style={styles.map}
           initialRegion={mapInitialRegion}
@@ -354,6 +389,76 @@ export default function MapScreen({
               <Text style={styles.emptyPanelText}>
                 Select a pin to view information
               </Text>
+
+              <View style={styles.filterRow}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.filterButton,
+                    showSavedOnly &&
+                      styles.filterButtonActive,
+                    pressed &&
+                      styles.filterButtonPressed,
+                  ]}
+                  onPress={() => toggleMapFilter('saved')}
+                >
+                  <Ionicons
+                    name={
+                      showSavedOnly
+                        ? 'bookmark'
+                        : 'bookmark-outline'
+                    }
+                    size={16}
+                    color={
+                      showSavedOnly
+                        ? '#FFFFFF'
+                        : Colors.text
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.filterButtonText,
+                      showSavedOnly &&
+                        styles.filterButtonTextActive,
+                    ]}
+                  >
+                    Saved centers
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.filterButton,
+                    showOpenOnly &&
+                      styles.filterButtonActive,
+                    pressed &&
+                      styles.filterButtonPressed,
+                  ]}
+                  onPress={() => toggleMapFilter('open')}
+                >
+                  <Ionicons
+                    name={
+                      showOpenOnly
+                        ? 'time'
+                        : 'time-outline'
+                    }
+                    size={16}
+                    color={
+                      showOpenOnly
+                        ? '#FFFFFF'
+                        : Colors.text
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.filterButtonText,
+                      showOpenOnly &&
+                        styles.filterButtonTextActive,
+                    ]}
+                  >
+                    Open now
+                  </Text>
+                </Pressable>
+              </View>
             </View>
           )}
         </View>
@@ -463,6 +568,46 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontSize: 14,
     fontWeight: '500',
+  },
+
+  filterRow: {
+    width: '100%',
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 13,
+  },
+
+  filterButton: {
+    flex: 1,
+    minHeight: 43,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingHorizontal: 10,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.background,
+  },
+
+  filterButtonActive: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primary,
+  },
+
+  filterButtonPressed: {
+    opacity: 0.8,
+  },
+
+  filterButtonText: {
+    color: Colors.text,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  filterButtonTextActive: {
+    color: '#FFFFFF',
   },
 
   selectedHeader: {
