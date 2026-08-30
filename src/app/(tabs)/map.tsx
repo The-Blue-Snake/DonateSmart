@@ -42,6 +42,7 @@ export default function MapScreen({
   const insets = useSafeAreaInsets();
   const {
     savedCenterIds,
+    toggleSavedCenter,
   } = useAppTabNavigation();
 
   const focusedCenterId =
@@ -336,6 +337,35 @@ export default function MapScreen({
                     {selectedCenter.address}
                   </Text>
                 </View>
+
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.savedCenterButton,
+                    savedCenterIds.has(
+                      selectedCenter.id,
+                    ) && styles.savedCenterButtonActive,
+                    pressed &&
+                      styles.savedCenterButtonPressed,
+                  ]}
+                  onPress={() =>
+                    toggleSavedCenter(selectedCenter.id)
+                  }
+                  hitSlop={8}
+                >
+                  <Ionicons
+                    name={
+                      savedCenterIds.has(selectedCenter.id)
+                        ? 'bookmark'
+                        : 'bookmark-outline'
+                    }
+                    size={18}
+                    color={
+                      savedCenterIds.has(selectedCenter.id)
+                        ? '#FFFFFF'
+                        : Colors.text
+                    }
+                  />
+                </Pressable>
               </View>
 
               <View style={styles.divider} />
@@ -633,6 +663,27 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontSize: 13,
     marginTop: 3,
+  },
+
+  savedCenterButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 10,
+    backgroundColor: Colors.background,
+  },
+
+  savedCenterButtonActive: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primary,
+  },
+
+  savedCenterButtonPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.96 }],
   },
 
   divider: {
