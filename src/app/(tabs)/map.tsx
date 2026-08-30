@@ -1,4 +1,3 @@
-import { useAppTabNavigation } from '@/components/app-tab-navigation';
 import { Colors, Spacing } from '@/constants/theme';
 import type { DonationCenter } from '@/constants/types';
 import { getCenters } from '@/data/donationCenters';
@@ -6,7 +5,14 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  InteractionManager,
+  Linking,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import MapView, { Marker, type Region } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -19,6 +25,7 @@ type MapScreenProps = {
   tabParams?: {
     centerId?: string;
   };
+  isActive?: boolean;
 };
 
 const MINNEAPOLIS: Region = {
@@ -28,9 +35,11 @@ const MINNEAPOLIS: Region = {
   longitudeDelta: 0.24,
 };
 
-export default function MapScreen({ tabParams }: MapScreenProps = {}) {
+export default function MapScreen({
+  tabParams,
+  isActive = true,
+}: MapScreenProps = {}) {
   const { centerId } = useLocalSearchParams<{ centerId?: string }>();
-  const { navigateToTab } = useAppTabNavigation();
 
   const focusedCenterId =
     tabParams?.centerId ??
@@ -49,9 +58,34 @@ export default function MapScreen({ tabParams }: MapScreenProps = {}) {
   const [userLocation, setUserLocation] =
     useState<Coordinate | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [markerRenderVersion, setMarkerRenderVersion] = useState(0);
 
   const coordinateCache = useRef<Record<string, Coordinate>>({});
   const mapRef = useRef<MapView>(null);
+  const visibleRegion = useRef<Region>(MINNEAPOLIS);
+  const mapLayout = useRef({ width: 0, height: 0 });
+
+  const recoverMapLayout = useCallback((force = false) => {
+    if ((!mapReady && !force) || !mapRef.current) {
+      return;
+    }
+
+    InteractionManager.runAfterInteractions(() => {
+      mapRef.current?.animateToRegion(
+        visibleRegion.current,
+        0,
+      );
+    });
+  }, [mapReady]);
+
+  useEffect(() => {
+    if (!isActive) {
+      return;
+    }
+
+    setMarkerRenderVersion((current) => current + 1);
+    recoverMapLayout();
+  }, [isActive, recoverMapLayout]);
 
   useFocusEffect(
     useCallback(() => {
@@ -71,7 +105,6 @@ export default function MapScreen({ tabParams }: MapScreenProps = {}) {
       return;
     }
 
-    setMapReady(false);
     setMapFocusId(focusedCenterId);
     setSelectedId(focusedCenterId);
   }, [focusedCenterId]);
@@ -190,7 +223,6 @@ export default function MapScreen({ tabParams }: MapScreenProps = {}) {
    * centerId survives when switching back to the Centers tab.
    */
   const focusOnCenter = (id: string) => {
-    setMapReady(false);
     setSelectedId(id);
     setMapFocusId(id);
   };
@@ -201,7 +233,6 @@ export default function MapScreen({ tabParams }: MapScreenProps = {}) {
    * Again, this only changes local map state.
    */
   const showAllCenters = () => {
-    setMapReady(false);
     setSelectedId(null);
     setMapFocusId(null);
   };
@@ -232,16 +263,35 @@ export default function MapScreen({ tabParams }: MapScreenProps = {}) {
     >
       <View style={styles.mapCard}>
         <MapView
-          key={mapFocusId ?? 'all-centers'}
           ref={mapRef}
           style={styles.map}
           initialRegion={MINNEAPOLIS}
           showsUserLocation={false}
-          onMapReady={() => setMapReady(true)}
+          removeClippedSubviews={false}
+          onMapReady={() => {
+            setMapReady(true);
+            recoverMapLayout(true);
+          }}
+          onLayout={(event) => {
+            const { width, height } = event.nativeEvent.layout;
+
+            if (
+              width === mapLayout.current.width &&
+              height === mapLayout.current.height
+            ) {
+              return;
+            }
+
+            mapLayout.current = { width, height };
+            recoverMapLayout();
+          }}
+          onRegionChangeComplete={(region) => {
+            visibleRegion.current = region;
+          }}
         >
           {markers.map(({ center, coordinate }) => (
             <Marker
-              key={center.id}
+              key={`${center.id}-${markerRenderVersion}`}
               coordinate={coordinate}
               anchor={{ x: 0.5, y: 1 }}
               onPress={() => focusOnCenter(center.id)}
@@ -258,6 +308,7 @@ export default function MapScreen({ tabParams }: MapScreenProps = {}) {
 
           {userLocation ? (
             <Marker
+              key={`user-location-${markerRenderVersion}`}
               coordinate={userLocation}
               anchor={{ x: 0.5, y: 1 }}
             >
