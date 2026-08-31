@@ -382,7 +382,7 @@ export default function MapScreen({
                   <Ionicons
                     name="navigate-outline"
                     size={16}
-                    color={Colors.card}
+                    color={Colors.white}
                   />
 
                   <Text style={styles.routeButtonText}>
@@ -715,7 +715,7 @@ const styles = StyleSheet.create({
   },
 
   routeButtonText: {
-    color: Colors.card,
+    color: Colors.white,
     fontWeight: '600',
     fontSize: 13.5,
   },
