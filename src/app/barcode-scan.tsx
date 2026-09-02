@@ -24,7 +24,6 @@ export default function BarcodeScan() {
   const [scannedCode, setScannedCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [product, setProduct] = useState<ProductInfo | null>(null);
-  const [notFound, setNotFound] = useState(false);
 
   const requestIdRef = useRef(0);
   const scannedCodeRef = useRef<string | null>(null);
@@ -94,7 +93,6 @@ export default function BarcodeScan() {
     const currentRequestId = ++requestIdRef.current;
 
     setLoading(true);
-    setNotFound(false);
 
     for (const lookup of [tryUpcItemDb]) {
       try {
@@ -105,7 +103,6 @@ export default function BarcodeScan() {
         }
 
         if (result) {
-          setNotFound(false);
           setProduct(result);
           setLoading(false);
           return;
@@ -123,7 +120,6 @@ export default function BarcodeScan() {
       return;
     }
 
-    setNotFound(true);
     setLoading(false);
   };
 
@@ -142,7 +138,6 @@ export default function BarcodeScan() {
     scannedCodeRef.current = null;
     setScannedCode(null);
     setProduct(null);
-    setNotFound(false);
     setLoading(false);
   };
 
@@ -179,28 +174,19 @@ export default function BarcodeScan() {
   };
 
   const confirmDetectedCategory = () => {
-    if (!product) {
+    if (!product || !categoryParts.fullPath) {
       return;
     }
 
-    const {
-      fullPath,
-      topLevel,
-      deepestBranch,
-    } = getCategoryParts(product.category || product.name);
-
-    const categoryValue =
-      fullPath || deepestBranch || product.name || '';
-
-    const topLevelValue = topLevel || categoryValue;
-
     router.dismissAll();
     navigateToTab('centers', {
-      category: categoryValue,
-      topLevel: topLevelValue,
-      name: deepestBranch || product.name || 'Category',
+      category: categoryParts.fullPath,
+      topLevel: categoryParts.topLevel,
+      name: categoryParts.deepestBranch,
     });
   };
+
+  const categoryParts = getCategoryParts(product?.category);
 
   return (
     <View style={styles.blackContainer}>
@@ -228,9 +214,7 @@ export default function BarcodeScan() {
         <SafeAreaView style={styles.resultWrap}>
           <View style={styles.resultContent}>
             <View style={styles.card}>
-              <Text style={styles.codeLabel}>BARCODE</Text>
-
-              <Text style={styles.codeText}>{scannedCode}</Text>
+              <Text style={styles.resultLabel}>CONFIRM CATEGORY</Text>
 
               <View style={styles.cardDivider} />
 
@@ -247,45 +231,26 @@ export default function BarcodeScan() {
                 </View>
               ) : null}
 
-              {!loading && product ? (
-                <View style={styles.productInfo}>
-                  <Text style={styles.productName}>
-                    {product.name}
+              {!loading && categoryParts.fullPath ? (
+                <View style={styles.categoryInfo}>
+                  <Text style={styles.categoryName}>
+                    {categoryParts.deepestBranch}
                   </Text>
 
-                  {product.brand ? (
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Brand</Text>
-
-                      <Text style={styles.detailValue}>
-                        {product.brand}
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  {product.category ? (
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Category</Text>
-
-                      <Text style={styles.detailValue}>
-                        {
-                          getCategoryParts(product.category)
-                            .deepestBranch
-                        }
-                      </Text>
-                    </View>
-                  ) : null}
+                  <Text style={styles.categoryPath}>
+                    {categoryParts.fullPath}
+                  </Text>
                 </View>
               ) : null}
 
-              {!loading && !product && notFound ? (
+              {!loading && !categoryParts.fullPath ? (
                 <View style={styles.notFoundState}>
                   <Text style={styles.notFoundTitle}>
-                    Product not found
+                    Category not found
                   </Text>
 
                   <Text style={styles.notFoundText}>
-                    You can still choose a category manually.
+                    You can choose a category manually.
                   </Text>
                 </View>
               ) : null}
@@ -293,7 +258,7 @@ export default function BarcodeScan() {
 
             {!loading ? (
               <View style={styles.actions}>
-                {product ? (
+                {categoryParts.fullPath ? (
                   <>
                     <Pressable
                       style={({ pressed }) => [
@@ -314,11 +279,7 @@ export default function BarcodeScan() {
                           styles.secondaryActionButtonPressed,
                       ]}
                       onPress={() =>
-                        continueToManualEntry(
-                          getCategoryParts(
-                            product.category || product.name,
-                          ).deepestBranch,
-                        )
+                        continueToManualEntry(categoryParts.deepestBranch)
                       }
                     >
                       <Text style={styles.secondaryActionText}>
@@ -462,7 +423,7 @@ const styles = StyleSheet.create({
   },
 
   resultWrap: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: Colors.background,
     justifyContent: 'center',
   },
@@ -480,21 +441,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
-  codeLabel: {
+  resultLabel: {
     color: Colors.textMuted,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 1,
     textAlign: 'center',
-  },
-
-  codeText: {
-    color: Colors.text,
-    fontSize: 14,
-    fontWeight: '500',
-    letterSpacing: 1.2,
-    textAlign: 'center',
-    marginTop: 5,
   },
 
   cardDivider: {
@@ -515,43 +467,25 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  productInfo: {
+  categoryInfo: {
     alignItems: 'center',
   },
 
-  productName: {
+  categoryName: {
     color: Colors.text,
     fontSize: 22,
     lineHeight: 27,
     fontWeight: '700',
     letterSpacing: -0.35,
     textAlign: 'center',
-    marginBottom: 14,
+    marginBottom: 10,
   },
 
-  detailRow: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 9,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    gap: 14,
-  },
-
-  detailLabel: {
+  categoryPath: {
     color: Colors.textMuted,
     fontSize: 13,
-    fontWeight: '500',
-  },
-
-  detailValue: {
-    flex: 1,
-    color: Colors.text,
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'right',
+    lineHeight: 19,
+    textAlign: 'center',
   },
 
   notFoundState: {
@@ -613,4 +547,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
