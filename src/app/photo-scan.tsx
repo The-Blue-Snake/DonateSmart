@@ -1,9 +1,11 @@
 import { Colors, Spacing } from '@/constants/theme';
+import { classifyImageAt } from '@/lib/ml/itemClassifier';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -14,6 +16,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function PhotoScan() {
   const [permission, requestPermission] = useCameraPermissions();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [capturedUri, setCapturedUri] = useState<string | null>(null);
+
   const cameraRef = useRef<CameraView>(null);
 
   if (!permission) {
@@ -29,7 +33,9 @@ export default function PhotoScan() {
           </View>
 
           <View style={styles.permissionContent}>
-            <Text style={styles.permissionTitle}>Camera access needed</Text>
+            <Text style={styles.permissionTitle}>
+              Camera access needed
+            </Text>
 
             <Text style={styles.permissionMessage}>
               DonateSmart uses your camera to help identify items without
@@ -44,7 +50,9 @@ export default function PhotoScan() {
             ]}
             onPress={requestPermission}
           >
-            <Text style={styles.primaryButtonText}>Enable Camera</Text>
+            <Text style={styles.primaryButtonText}>
+              Enable Camera
+            </Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -52,27 +60,80 @@ export default function PhotoScan() {
   }
 
   const handleCapture = async () => {
-    setIsAnalyzing(true);
+    if (!cameraRef.current || isAnalyzing) {
+      return;
+    }
 
-    // This is a placeholder until real image classification is wired in.
-    await new Promise((resolve) => setTimeout(resolve, 1200));
+    try {
+      setIsAnalyzing(true);
 
-    setIsAnalyzing(false);
-    router.replace({
-      pathname: '/manual-entry',
-      params: { prefill: '' },
-    });
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.8,
+      });
+
+      if (!photo?.uri) {
+        throw new Error('The camera did not return a photo.');
+      }
+
+      // Freeze the camera on the exact photo that was captured.
+      setCapturedUri(photo.uri);
+
+      const predictions = await classifyImageAt(photo.uri);
+
+      console.log(
+        'Mistral predictions:',
+        predictions.map((prediction) => prediction.label),
+      );
+
+      const primaryPrediction = predictions[0];
+
+      router.replace({
+        pathname: '/manual-entry',
+        params: {
+          prefill: primaryPrediction?.label ?? '',
+          suggestions: JSON.stringify(
+            predictions.slice(1).map((prediction) => prediction.label),
+          ),
+        },
+      });
+    } catch (error) {
+      console.error('Image recognition failed:', error);
+
+      router.replace({
+        pathname: '/manual-entry',
+        params: {
+          prefill: '',
+          suggestions: '[]',
+        },
+      });
+    }
   };
 
   return (
     <View style={styles.blackContainer}>
-      <CameraView ref={cameraRef} style={styles.camera} />
+      <CameraView
+        ref={cameraRef}
+        style={styles.camera}
+      />
+
+      {capturedUri && (
+        <Image
+          source={{ uri: capturedUri }}
+          style={styles.capturedImage}
+          resizeMode="cover"
+        />
+      )}
 
       {isAnalyzing ? (
         <View style={styles.analyzingOverlay}>
-          <ActivityIndicator size="large" color={Colors.white} />
+          <ActivityIndicator
+            size="large"
+            color={Colors.white}
+          />
 
-          <Text style={styles.analyzingText}>Identifying item…</Text>
+          <Text style={styles.analyzingText}>
+            Identifying item…
+          </Text>
         </View>
       ) : (
         <View style={styles.captureBar}>
@@ -99,6 +160,10 @@ const styles = StyleSheet.create({
 
   camera: {
     flex: 1,
+  },
+
+  capturedImage: {
+    ...StyleSheet.absoluteFillObject,
   },
 
   permissionContainer: {
@@ -211,7 +276,7 @@ const styles = StyleSheet.create({
 
   analyzingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.58)',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 12,
@@ -223,4 +288,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
