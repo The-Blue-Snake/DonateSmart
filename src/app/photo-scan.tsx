@@ -1,5 +1,8 @@
+import { useAppTabNavigation } from '@/components/app-tab-navigation';
 import { Colors, Spacing } from '@/constants/theme';
-import { classifyImageAt } from '@/lib/ml/itemClassifier';
+import type { TaxonomyCategory } from '@/constants/types';
+import { classifyImageAt } from '@/lib/vision/itemClassifier';
+import { resolveTaxonomyCategory } from '@/lib/taxonomy/resolveTaxonomyCategory';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -14,9 +17,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function PhotoScan() {
+  const { navigateToTab } = useAppTabNavigation();
   const [permission, requestPermission] = useCameraPermissions();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
+  const [detectedCategory, setDetectedCategory] =
+    useState<TaxonomyCategory | null>(null);
+  const [detectedLabel, setDetectedLabel] = useState('');
 
   const cameraRef = useRef<CameraView>(null);
 
@@ -85,36 +92,57 @@ export default function PhotoScan() {
         predictions.map((prediction) => prediction.label),
       );
 
-      const primaryPrediction = predictions[0];
+      const category = resolveTaxonomyCategory(
+        predictions.map((prediction) => prediction.label),
+      );
 
-      router.replace({
-        pathname: '/manual-entry',
-        params: {
-          prefill: primaryPrediction?.label ?? '',
-          suggestions: JSON.stringify(
-            predictions.slice(1).map((prediction) => prediction.label),
-          ),
-        },
-      });
+      setDetectedCategory(category);
+      setDetectedLabel(predictions[0]?.label ?? '');
     } catch (error) {
       console.error('Image recognition failed:', error);
-
-      router.replace({
-        pathname: '/manual-entry',
-        params: {
-          prefill: '',
-          suggestions: '[]',
-        },
-      });
+      setDetectedCategory(null);
+      setDetectedLabel('');
+    } finally {
+      setIsAnalyzing(false);
     }
+  };
+
+  const confirmDetectedCategory = () => {
+    if (!detectedCategory) {
+      return;
+    }
+
+    router.dismissAll();
+    navigateToTab('centers', {
+      category: detectedCategory.fullPath,
+      topLevel: detectedCategory.topLevel,
+      name: detectedCategory.name,
+    });
+  };
+
+  const editCategory = () => {
+    router.replace({
+      pathname: '/manual-entry',
+      params: {
+        prefill: detectedLabel,
+      },
+    });
+  };
+
+  const retakePicture = () => {
+    setCapturedUri(null);
+    setDetectedCategory(null);
+    setDetectedLabel('');
   };
 
   return (
     <View style={styles.blackContainer}>
-      <CameraView
-        ref={cameraRef}
-        style={styles.camera}
-      />
+      {!capturedUri ? (
+        <CameraView
+          ref={cameraRef}
+          style={styles.camera}
+        />
+      ) : null}
 
       {capturedUri && (
         <Image
@@ -135,6 +163,90 @@ export default function PhotoScan() {
             Identifying item…
           </Text>
         </View>
+      ) : capturedUri ? (
+        <SafeAreaView style={styles.resultWrap}>
+          <View style={styles.resultContent}>
+            <View style={styles.card}>
+              <Text style={styles.resultLabel}>CONFIRM CATEGORY</Text>
+
+              <View style={styles.cardDivider} />
+
+              {detectedCategory ? (
+                <View style={styles.categoryInfo}>
+                  <Text style={styles.categoryName}>
+                    {detectedCategory.name}
+                  </Text>
+
+                  <Text style={styles.categoryPath}>
+                    {detectedCategory.fullPath}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.notFoundState}>
+                  <Text style={styles.notFoundTitle}>
+                    Category not found
+                  </Text>
+
+                  <Text style={styles.notFoundText}>
+                    You can choose a category manually.
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.actions}>
+              {detectedCategory ? (
+                <>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.primaryButton,
+                      pressed && styles.primaryButtonPressed,
+                    ]}
+                    onPress={confirmDetectedCategory}
+                  >
+                    <Text style={styles.primaryButtonText}>
+                      Confirm Category
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.secondaryActionButton,
+                      pressed && styles.secondaryActionButtonPressed,
+                    ]}
+                    onPress={editCategory}
+                  >
+                    <Text style={styles.secondaryActionText}>
+                      Edit Category
+                    </Text>
+                  </Pressable>
+                </>
+              ) : (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    pressed && styles.primaryButtonPressed,
+                  ]}
+                  onPress={editCategory}
+                >
+                  <Text style={styles.primaryButtonText}>
+                    Choose Category Manually
+                  </Text>
+                </Pressable>
+              )}
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.scanAgainButton,
+                  pressed && styles.scanAgainButtonPressed,
+                ]}
+                onPress={retakePicture}
+              >
+                <Text style={styles.scanAgainText}>Retake Picture</Text>
+              </Pressable>
+            </View>
+          </View>
+        </SafeAreaView>
       ) : (
         <View style={styles.captureBar}>
           <Pressable
@@ -285,6 +397,119 @@ const styles = StyleSheet.create({
   analyzingText: {
     color: Colors.white,
     fontSize: 16,
+    fontWeight: '600',
+  },
+
+  resultWrap: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.background,
+    justifyContent: 'center',
+  },
+
+  resultContent: {
+    marginHorizontal: Spacing.screen,
+  },
+
+  card: {
+    backgroundColor: Colors.card,
+    borderRadius: 14,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: 12,
+  },
+
+  resultLabel: {
+    color: Colors.textMuted,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
+
+  cardDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginVertical: 18,
+  },
+
+  categoryInfo: {
+    alignItems: 'center',
+  },
+
+  categoryName: {
+    color: Colors.text,
+    fontSize: 22,
+    lineHeight: 27,
+    fontWeight: '700',
+    letterSpacing: -0.35,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+
+  categoryPath: {
+    color: Colors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+  },
+
+  notFoundState: {
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+
+  notFoundTitle: {
+    color: Colors.text,
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 5,
+  },
+
+  notFoundText: {
+    color: Colors.textMuted,
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 19,
+  },
+
+  actions: {
+    gap: 9,
+  },
+
+  secondaryActionButton: {
+    minHeight: 48,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  secondaryActionButtonPressed: {
+    backgroundColor: Colors.background,
+  },
+
+  secondaryActionText: {
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  scanAgainButton: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  scanAgainButtonPressed: {
+    opacity: 0.55,
+  },
+
+  scanAgainText: {
+    color: Colors.textMuted,
+    fontSize: 14,
     fontWeight: '600',
   },
 });
