@@ -2,7 +2,6 @@ import { useAppTabNavigation } from '@/components/app-tab-navigation';
 import { Colors, Spacing } from '@/constants/theme';
 import type { TaxonomyCategory } from '@/constants/types';
 import { classifyImageAt } from '@/lib/vision/itemClassifier';
-import { resolveTaxonomyCategory } from '@/lib/taxonomy/resolveTaxonomyCategory';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -24,6 +23,7 @@ export default function PhotoScan() {
   const [detectedCategory, setDetectedCategory] =
     useState<TaxonomyCategory | null>(null);
   const [detectedLabel, setDetectedLabel] = useState('');
+  const [needsReview, setNeedsReview] = useState(false);
 
   const cameraRef = useRef<CameraView>(null);
 
@@ -85,23 +85,23 @@ export default function PhotoScan() {
       // Freeze the camera on the exact photo that was captured.
       setCapturedUri(photo.uri);
 
-      const predictions = await classifyImageAt(photo.uri);
+      const result = await classifyImageAt(photo.uri);
 
-      console.log(
-        'Mistral predictions:',
-        predictions.map((prediction) => prediction.label),
-      );
-
-      const category = resolveTaxonomyCategory(
-        predictions.map((prediction) => prediction.label),
-      );
-
-      setDetectedCategory(category);
-      setDetectedLabel(predictions[0]?.label ?? '');
+      if (result) {
+        setDetectedCategory(result.category);
+        setDetectedLabel(result.category.name);
+        setNeedsReview(result.needsReview);
+      } else {
+        // No confident, verified category — not an error, just nothing found.
+        setDetectedCategory(null);
+        setDetectedLabel('');
+        setNeedsReview(false);
+      }
     } catch (error) {
       console.error('Image recognition failed:', error);
       setDetectedCategory(null);
       setDetectedLabel('');
+      setNeedsReview(false);
     } finally {
       setIsAnalyzing(false);
     }
@@ -133,6 +133,7 @@ export default function PhotoScan() {
     setCapturedUri(null);
     setDetectedCategory(null);
     setDetectedLabel('');
+    setNeedsReview(false);
   };
 
   return (
@@ -180,6 +181,14 @@ export default function PhotoScan() {
                   <Text style={styles.categoryPath}>
                     {detectedCategory.fullPath}
                   </Text>
+
+                  {needsReview && (
+                    <View style={styles.reviewBadge}>
+                      <Text style={styles.reviewBadgeText}>
+                        Best guess — please double check
+                      </Text>
+                    </View>
+                  )}
                 </View>
               ) : (
                 <View style={styles.notFoundState}>
@@ -452,6 +461,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     textAlign: 'center',
+  },
+
+  reviewBadge: {
+    marginTop: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.background,
+  },
+
+  reviewBadgeText: {
+    color: Colors.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
 
   notFoundState: {
