@@ -18,7 +18,6 @@ Rules:
 - Prefer "blender" over "kitchen appliance".
 - Prefer "mountain bike" over "bicycle" when the type is clearly visible.
 - Prefer "office chair" over "chair" when the type is clear.
-- Identify a brand or model ONLY when it is genuinely visible and identifiable.
 - Never invent details.
 - If the exact item cannot be determined, use the most useful general description.
 - The answer should describe the physical item itself, not what it might be used for.
