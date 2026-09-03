@@ -19,6 +19,7 @@ import {
 import {
   Animated,
   Dimensions,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -910,6 +911,15 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
     });
   };
 
+  const openPhone = (phone: string) => {
+    const dialablePhone = phone.replace(
+      /[^\d+]/g,
+      '',
+    );
+
+    void Linking.openURL(`tel:${dialablePhone}`);
+  };
+
   const getCardMotion = (
     index: number,
   ) => {
@@ -1611,10 +1621,17 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
           ) : null}
 
           {center.phone ? (
-            <View
-              style={
-                styles.expandedMetaRow
+            <Pressable
+              accessibilityRole="button"
+              onPress={() =>
+                center.phone &&
+                openPhone(center.phone)
               }
+              style={({ pressed }) => [
+                styles.expandedMetaRow,
+                pressed &&
+                  styles.expandedMetaRowPressed,
+              ]}
             >
               <View
                 style={
@@ -1643,7 +1660,7 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
                   {center.phone}
                 </Text>
               </View>
-            </View>
+            </Pressable>
           ) : null}
 
           <Pressable
@@ -2478,6 +2495,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 16,
+  },
+
+  expandedMetaRowPressed: {
+    opacity: 0.7,
   },
 
   metaIconCircle: {

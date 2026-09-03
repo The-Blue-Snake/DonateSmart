@@ -16,7 +16,6 @@ const palette = {
   accent: '#8FA35C',
   accentDark: '#5C6A38',
 } as const;
-*/
 
 const palette = {
   primary: '#F97316',
@@ -30,8 +29,8 @@ const palette = {
   accent: '#FACC15',
   accentDark: '#CA8A04',
 } as const;
+*/
 
-/*
 const palette = {
   primary: '#5D7A9C',
   primaryDark: '#3A4E63',
@@ -48,7 +47,6 @@ const palette = {
   accent: '#8CA4BE',
   accentDark: '#576F87',
 } as const;
-*/
 
 export const Colors = {
   ...palette,
