@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
   },
 
   capturedImage: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
 
   permissionContainer: {
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
   },
 
   analyzingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.58)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
   },
 
   resultWrap: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: Colors.background,
     justifyContent: 'center',
   },

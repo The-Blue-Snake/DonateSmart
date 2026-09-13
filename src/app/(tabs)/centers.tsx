@@ -80,7 +80,7 @@ const EXPANDED_CARD_HEIGHT = Math.min(
 
 // The search header takes up the same vertical space as two regular cards,
 // so the first real center card can sit exactly where a focused card would.
-const SEARCH_CARD_HEIGHT = ITEM_HEIGHT * 2 - CARD_GAP;
+const SEARCH_CARD_HEIGHT = ITEM_HEIGHT * 2 + 8 - CARD_GAP;
 
 // A bit more breathing room between the header and the first card than the
 // standard gap used between regular cards.
@@ -2211,20 +2211,20 @@ const styles = StyleSheet.create({
   },
 
   collapsedPhoto: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     width: '100%',
     height: '100%',
   },
 
   photoFallback: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.card,
   },
 
   photoOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#000000',
     opacity: 0.36,
   },
@@ -2334,7 +2334,7 @@ const styles = StyleSheet.create({
   },
 
   expandedPhotoScroll: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     width: '100%',
     height: '100%',
   },
@@ -2355,20 +2355,20 @@ const styles = StyleSheet.create({
   },
 
   expandedPhoto: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     width: '100%',
     height: '100%',
   },
 
   expandedFallback: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.background,
   },
 
   expandedImageOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#000000',
     opacity: 0.31,
   },

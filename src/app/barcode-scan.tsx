@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
   },
 
   scanOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     paddingBottom: 80,
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
   },
 
   resultWrap: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: Colors.background,
     justifyContent: 'center',
   },
