@@ -37,16 +37,16 @@ const palette = {
 */
 
 const palette = {
-  primary: '#F97316',
-  primaryDark: '#C2410C',
+  primary: '#3B82F6',
+  primaryDark: '#1D4ED8',
   background: '#111111',
   card: '#1E1E1E',
   white: '#FAFAFA',
   text: '#F5F5F5',
   textMuted: '#A3A3A3',
   border: '#333333',
-  accent: '#FACC15',
-  accentDark: '#CA8A04',
+  accent: '#60A5FA',
+  accentDark: '#2563EB',
 } as const;
 
 export const Colors = {
