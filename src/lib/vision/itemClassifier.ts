@@ -5,7 +5,7 @@ import { Blob as ExpoBlob } from 'expo-blob';
 const MISTRAL_API_URL = 'https://api.mistral.ai/v1/chat/completions';
 const MISTRAL_MODEL = 'mistral-small-2603';
 
-const API_KEY = 'iGYIx1ZnxJWDoRzz0z2GhFCEUJjr13zJ';
+const API_KEY = 'API_KEY'
 
 const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_EXAMPLES_PER_CANDIDATE = 4;
