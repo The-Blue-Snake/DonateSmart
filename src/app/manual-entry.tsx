@@ -34,7 +34,7 @@ export default function ManualEntry() {
   }, [query]);
 
   const selectCategory = (category: TaxonomyCategory) => {
-    router.dismissAll();
+    router.dismiss();
     navigateToTab('centers', {
       category: category.fullPath,
       topLevel: category.topLevel,
@@ -255,4 +255,3 @@ content: { flex: 1, paddingHorizontal: Spacing.screen, paddingTop: 20, justifyCo
     textAlign: 'center',
   },
 });
-

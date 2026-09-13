@@ -1,10 +1,11 @@
 import type { TaxonomyCategory } from '@/constants/types';
 import taxonomyData from '@/data/taxonomy.json';
+import { Blob as ExpoBlob } from 'expo-blob';
 
 const MISTRAL_API_URL = 'https://api.mistral.ai/v1/chat/completions';
 const MISTRAL_MODEL = 'mistral-small-2603';
 
-const API_KEY = 'CO4n6PfAJlkeZtfzqZ1h5vLnmguTgupo';
+const API_KEY = 'iGYIx1ZnxJWDoRzz0z2GhFCEUJjr13zJ';
 
 const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_EXAMPLES_PER_CANDIDATE = 4;
@@ -68,36 +69,28 @@ async function imageUriToDataUrl(uri: string): Promise<string> {
     throw new Error(`Unable to read captured image (${response.status}).`);
   }
 
-  const blob = await response.blob();
+  const blob = new ExpoBlob([await response.arrayBuffer()], {
+    type: getMimeType(uri),
+  });
   console.log(
     `Image fetched (${blob.size} bytes, ${blob.type || 'unknown type'}). Encoding to base64…`,
   );
 
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
+  const bytes = await blob.bytes();
+  let binary = '';
+  const chunkSize = 0x8000;
 
-    reader.onload = () => {
-      if (typeof reader.result !== 'string') {
-        reject(new Error('Unable to convert image to base64.'));
-        return;
-      }
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(
+      ...bytes.subarray(offset, offset + chunkSize),
+    );
+  }
 
-      const result = reader.result;
-
-      if (result.startsWith('data:')) {
-        resolve(result);
-        return;
-      }
-
-      resolve(`data:${getMimeType(uri)};base64,${result}`);
-    };
-
-    reader.onerror = () => {
-      reject(new Error('Unable to read captured image.'));
-    };
-
-    reader.readAsDataURL(blob);
-  });
+  try {
+    return `data:${getMimeType(uri)};base64,${globalThis.btoa(binary)}`;
+  } catch {
+    throw new Error('Unable to convert image to base64.');
+  }
 }
 
 async function fetchWithTimeout(
@@ -307,21 +300,21 @@ ${candidateText}`,
 
     console.log(`Mistral request failed with status ${response.status}.`);
 
-    if (response.status === 401 || response.status === 422) {
-      throw new Error('Mistral API key is invalid.');
-    }
+    if (response.status === 401) {
+  throw new Error('Mistral API key is invalid.');
+}
 
-    if (response.status === 429) {
-      throw new Error(
-        'Mistral rate limit reached. Please try again in a moment.',
-      );
-    }
+if (response.status === 429) {
+  throw new Error('Mistral rate limit reached. Please try again in a moment.');
+}
 
-    throw new Error(
-      details
-        ? `Mistral API error (${response.status}): ${details}`
-        : `Mistral API error (${response.status}).`,
-    );
+if (!response.ok) {
+  throw new Error(
+    details
+      ? `Mistral API error (${response.status}): ${details}`
+      : `Mistral API error (${response.status}).`,
+  );
+}
   }
 
   const data = (await response.json()) as MistralResponse;

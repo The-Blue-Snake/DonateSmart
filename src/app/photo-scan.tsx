@@ -112,7 +112,7 @@ export default function PhotoScan() {
       return;
     }
 
-    router.dismissAll();
+    router.dismiss();
     navigateToTab('centers', {
       category: detectedCategory.fullPath,
       topLevel: detectedCategory.topLevel,
