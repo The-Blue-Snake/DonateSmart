@@ -19,6 +19,11 @@ type MistralResponse = {
       content?: string;
     };
   }>;
+  error?: {
+    message?: string;
+    type?: string;
+    code?: string;
+  };
 };
 
 export type ClassificationResult = {
@@ -302,7 +307,7 @@ ${candidateText}`,
 
     console.log(`Mistral request failed with status ${response.status}.`);
 
-    if (response.status === 401) {
+    if (response.status === 401 || response.status === 422) {
       throw new Error('Mistral API key is invalid.');
     }
 
@@ -321,10 +326,21 @@ ${candidateText}`,
 
   const data = (await response.json()) as MistralResponse;
 
+  if (data.error) {
+    const message =
+      typeof data.error.message === 'string' && data.error.message.trim()
+        ? data.error.message
+        : 'Mistral returned an unspecified API error.';
+
+    throw new Error(`Mistral API error: ${message}`);
+  }
+
   const content = data.choices?.[0]?.message?.content;
 
   if (typeof content !== 'string' || !content.trim()) {
-    throw new Error('Mistral returned no usable result.');
+    throw new Error(
+      'Mistral returned no usable result. The response did not contain choices[0].message.content.',
+    );
   }
 
   console.log(`Mistral raw response: ${content.trim()}`);
