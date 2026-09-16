@@ -903,6 +903,19 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
     });
   };
 
+  const toggleSavedCenterFromExpanded = (id: string) => {
+    const isSaved = savedIds.has(id);
+
+    if (isSaved && expandedCenter?.center.id === id) {
+      expansionProgress.stopAnimation();
+      expansionProgress.setValue(0);
+      setExpandedIndex(null);
+      setExpandedCenter(null);
+    }
+
+    toggleSavedCenter(id);
+  };
+
   const openMap = (
     center: DonationCenter,
   ) => {
@@ -1474,9 +1487,7 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
               pressed &&
                 styles.savedToggleButtonPressed,
             ]}
-            onPress={() =>
-              toggleSavedCenter(center.id)
-            }
+            onPress={() => toggleSavedCenterFromExpanded(center.id)}
             hitSlop={8}
           >
             <Ionicons
