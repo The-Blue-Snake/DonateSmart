@@ -1,18 +1,14 @@
-import type { TaxonomyCategory } from '@/constants/types';
+﻿import type { TaxonomyCategory } from '@/constants/types';
 import taxonomyData from '@/data/taxonomy.json';
 import { Blob as ExpoBlob } from 'expo-blob';
 
 const MISTRAL_API_URL = 'https://api.mistral.ai/v1/chat/completions';
 const MISTRAL_MODEL = 'mistral-small-2603';
-
-const API_KEY = 'API_KEY'
-
 const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_EXAMPLES_PER_CANDIDATE = 4;
+const UNCERTAIN_ID = 'uncertain';
 
 const taxonomy = taxonomyData as TaxonomyCategory[];
-
-const UNCERTAIN_ID = 'uncertain';
 
 type MistralResponse = {
   choices?: Array<{
@@ -39,10 +35,12 @@ type SelectionResult = {
 
 type WalkResult = {
   category: TaxonomyCategory;
-  // True when the walk stopped early because Mistral had no confident pick
-  // among the children at some level, rather than reaching a true leaf.
   uncertain: boolean;
 };
+
+function getApiKey(): string {
+  return process.env.EXPO_PUBLIC_MISTRAL_API_KEY ?? '';
+}
 
 function getMimeType(uri: string): string {
   const extension = uri.split('?')[0].split('.').pop()?.toLowerCase();
@@ -50,10 +48,8 @@ function getMimeType(uri: string): string {
   switch (extension) {
     case 'png':
       return 'image/png';
-
     case 'webp':
       return 'image/webp';
-
     case 'jpg':
     case 'jpeg':
     default:
@@ -62,7 +58,6 @@ function getMimeType(uri: string): string {
 }
 
 async function imageUriToDataUrl(uri: string): Promise<string> {
-  console.log(`Fetching image from ${uri}…`);
   const response = await fetch(uri);
 
   if (!response.ok) {
@@ -72,9 +67,6 @@ async function imageUriToDataUrl(uri: string): Promise<string> {
   const blob = new ExpoBlob([await response.arrayBuffer()], {
     type: getMimeType(uri),
   });
-  console.log(
-    `Image fetched (${blob.size} bytes, ${blob.type || 'unknown type'}). Encoding to base64…`,
-  );
 
   const bytes = await blob.bytes();
   let binary = '';
@@ -89,7 +81,7 @@ async function imageUriToDataUrl(uri: string): Promise<string> {
   try {
     return `data:${getMimeType(uri)};base64,${globalThis.btoa(binary)}`;
   } catch {
-    throw new Error('Unable to convert image to base64.');
+    throw new Error('Unable to convert the captured image to base64.');
   }
 }
 
@@ -98,10 +90,7 @@ async function fetchWithTimeout(
   options: RequestInit,
 ): Promise<Response> {
   const controller = new AbortController();
-
-  const timeout = setTimeout(() => {
-    controller.abort();
-  }, REQUEST_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
     return await fetch(url, {
@@ -119,8 +108,6 @@ async function fetchWithTimeout(
   }
 }
 
-// Returns the selected category id (or null if uncertain) plus Mistral's
-// stated reasoning, for logging/debugging purposes.
 function parseSelection(content: string): SelectionResult {
   let parsed: unknown;
 
@@ -165,9 +152,7 @@ function parseConfirmation(content: string): boolean {
     throw new Error('Mistral returned an invalid verification response.');
   }
 
-  const result = parsed as Record<string, unknown>;
-
-  return result.confirmed === true;
+  return (parsed as Record<string, unknown>).confirmed === true;
 }
 
 function getChildren(category: TaxonomyCategory | null): TaxonomyCategory[] {
@@ -183,31 +168,22 @@ function getChildren(category: TaxonomyCategory | null): TaxonomyCategory[] {
   );
 }
 
-// Cache of category id -> its children, computed once, since formatCandidate
-// calls getChildren for every candidate at every step (to build examples).
 const childrenCache = new Map<string, TaxonomyCategory[]>();
 
 function getChildrenCached(category: TaxonomyCategory): TaxonomyCategory[] {
   const cached = childrenCache.get(category.id);
-
   if (cached) {
     return cached;
   }
 
   const children = getChildren(category);
   childrenCache.set(category.id, children);
-
   return children;
 }
 
-// Uses the next level of the tree as free "example" data for a candidate —
-// e.g. when showing "Indoor Games" as an option, its examples are its own
-// children ("Air Hockey", "Billiards", "Bowling", ...). Leaf categories with
-// no children simply show no examples.
 function getExampleNames(category: TaxonomyCategory): string[] {
   const children = getChildrenCached(category);
-
-  return children.slice(0, MAX_EXAMPLES_PER_CANDIDATE).map((c) => c.name);
+  return children.slice(0, MAX_EXAMPLES_PER_CANDIDATE).map((child) => child.name);
 }
 
 function formatCandidate(category: TaxonomyCategory): string {
@@ -224,39 +200,36 @@ async function callMistral(
   imageDataUrl: string,
   candidates: TaxonomyCategory[],
 ): Promise<SelectionResult> {
-  if (!API_KEY) {
-    throw new Error('Mistral API key is missing.');
+  const apiKey = getApiKey();
+
+  if (!apiKey) {
+    throw new Error(
+      'Mistral API key is missing. Add EXPO_PUBLIC_MISTRAL_API_KEY to your environment.',
+    );
   }
 
   const candidateText = candidates.map(formatCandidate).join('\n');
-
-  console.log(
-    `Sending ${candidates.length} candidate(s) to Mistral:\n${candidateText}`,
-  );
 
   const response = await fetchWithTimeout(MISTRAL_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model: MISTRAL_MODEL,
       temperature: 0,
       max_tokens: 200,
-
       response_format: {
         type: 'json_object',
       },
-
       messages: [
         {
           role: 'system',
           content: `You classify a visible donation item into a Google Product Taxonomy tree.
 Choose exactly one category from the candidate list below that clearly and confidently
 matches the main physical item in the image. Base your choice on what the item literally
-is, not on loosely related activities or contexts it could be used in (for example, a game
-controller is an electronics accessory, not a sporting good, even though it's used for games).
+is, not on loosely related activities or contexts it could be used in.
 
 Some candidates list example items in parentheses — these show what belongs one level
 deeper in that branch, to help you judge fit. They are illustrative, not exhaustive.
@@ -298,23 +271,19 @@ ${candidateText}`,
       // Ignore failure to read the error body.
     }
 
-    console.log(`Mistral request failed with status ${response.status}.`);
-
     if (response.status === 401) {
-  throw new Error('Mistral API key is invalid.');
-}
+      throw new Error('Mistral API key is invalid.');
+    }
 
-if (response.status === 429) {
-  throw new Error('Mistral rate limit reached. Please try again in a moment.');
-}
+    if (response.status === 429) {
+      throw new Error('Mistral rate limit reached. Please try again in a moment.');
+    }
 
-if (!response.ok) {
-  throw new Error(
-    details
-      ? `Mistral API error (${response.status}): ${details}`
-      : `Mistral API error (${response.status}).`,
-  );
-}
+    throw new Error(
+      details
+        ? `Mistral API error (${response.status}): ${details}`
+        : `Mistral API error (${response.status}).`,
+    );
   }
 
   const data = (await response.json()) as MistralResponse;
@@ -336,51 +305,34 @@ if (!response.ok) {
     );
   }
 
-  console.log(`Mistral raw response: ${content.trim()}`);
-
-  const selection = parseSelection(content);
-
-  if (selection.reasoning) {
-    console.log(`Mistral's reasoning: ${selection.reasoning}`);
-  }
-
-  if (selection.categoryId === null) {
-    console.log('Mistral was uncertain — no candidate confidently matched.');
-  } else {
-    const picked = candidates.find((c) => c.id === selection.categoryId);
-    console.log(
-      `Mistral selected: ${selection.categoryId}${picked ? ` (${picked.name})` : ' (not in candidate list!)'}`,
-    );
-  }
-
-  return selection;
+  return parseSelection(content);
 }
 
 async function verifyFinalCategory(
   imageDataUrl: string,
   category: TaxonomyCategory,
 ): Promise<boolean> {
-  if (!API_KEY) {
-    throw new Error('Mistral API key is missing.');
-  }
+  const apiKey = getApiKey();
 
-  console.log(`Verifying final category: ${category.fullPath}`);
+  if (!apiKey) {
+    throw new Error(
+      'Mistral API key is missing. Add EXPO_PUBLIC_MISTRAL_API_KEY to your environment.',
+    );
+  }
 
   const response = await fetchWithTimeout(MISTRAL_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model: MISTRAL_MODEL,
       temperature: 0,
       max_tokens: 150,
-
       response_format: {
         type: 'json_object',
       },
-
       messages: [
         {
           role: 'system',
@@ -412,9 +364,6 @@ Return ONLY valid JSON in this exact shape:
   });
 
   if (!response.ok) {
-    console.log(
-      `Verification call failed with status ${response.status}, treating as unconfirmed.`,
-    );
     return false;
   }
 
@@ -422,121 +371,66 @@ Return ONLY valid JSON in this exact shape:
   const content = data.choices?.[0]?.message?.content;
 
   if (typeof content !== 'string' || !content.trim()) {
-    console.log('Verification returned no usable content, treating as unconfirmed.');
     return false;
   }
 
-  console.log(`Verification raw response: ${content.trim()}`);
-
-  const confirmed = parseConfirmation(content);
-  console.log(confirmed ? 'Verification: confirmed.' : 'Verification: rejected.');
-
-  return confirmed;
+  return parseConfirmation(content);
 }
 
-// Walks the taxonomy tree from the root, one call per level.
-//
-// Returns null only when Mistral is uncertain at the very first level —
-// there's nothing to fall back to in that case.
-//
-// If Mistral becomes uncertain partway down (no child confidently matches),
-// the walk stops and returns the last confident category with
-// `uncertain: true`, rather than discarding it — that category may still be
-// correct, it's just that Google's taxonomy doesn't go any more specific for
-// this particular item. The caller verifies it before trusting it.
 async function walkTree(imageDataUrl: string): Promise<WalkResult | null> {
   let selectedCategory: TaxonomyCategory | null = null;
   let step = 1;
 
   while (true) {
     const candidates: TaxonomyCategory[] = selectedCategory
-  ? getChildrenCached(selectedCategory)
-  : getChildren(null);
+      ? getChildrenCached(selectedCategory)
+      : getChildren(null);
 
     if (!candidates.length) {
       if (!selectedCategory) {
         throw new Error('The taxonomy has no selectable categories.');
       }
 
-      console.log(
-        `Reached a leaf category with no children: ${selectedCategory.name}. Done.`,
-      );
-
       return { category: selectedCategory, uncertain: false };
     }
-
-    console.log(
-      `--- Step ${step}: selecting among ${candidates.length} option(s) at level ${candidates[0].level} ---`,
-    );
 
     const { categoryId: selectedId } = await callMistral(imageDataUrl, candidates);
 
     if (selectedId === null) {
       if (!selectedCategory) {
-        console.log('Uncertain at the very first level — no category to fall back to.');
         return null;
       }
-
-      console.log(
-        `No confident match among children of "${selectedCategory.name}" at level ${candidates[0].level} — ` +
-          `stopping here rather than guessing. This may just mean Google's taxonomy isn't more ` +
-          `specific for this item, so "${selectedCategory.name}" will be verified as-is.`,
-      );
 
       return { category: selectedCategory, uncertain: true };
     }
 
     const nextCategory = candidates.find((category) => category.id === selectedId);
-
     if (!nextCategory) {
       throw new Error('Mistral selected a category outside the provided options.');
     }
 
-    console.log(`Descending into: ${nextCategory.fullPath}`);
     selectedCategory = nextCategory;
     step += 1;
   }
 }
 
-// Classifies the item in the photo into the taxonomy.
-//
-// Walks the tree exactly once, then runs a single cheap verification pass
-// on whatever it lands on. Returns null (no retry) if either the walk never
-// got a confident category at all, or verification rejects the final pick —
-// in both cases the caller should present "no category found" rather than a
-// guessed result.
 export async function classifyImageAt(
   imageUri: string,
 ): Promise<ClassificationResult | null> {
-  console.log('=== Starting classification ===');
-  console.log('Preparing image for Mistral…');
-
   const imageDataUrl = await imageUriToDataUrl(imageUri);
-
   const walkResult = await walkTree(imageDataUrl);
 
   if (!walkResult) {
-    console.log('=== Classification complete: no confident category found ===');
     return null;
   }
 
   const confirmed = await verifyFinalCategory(imageDataUrl, walkResult.category);
-
   if (!confirmed) {
-    console.log(
-      `Verification rejected "${walkResult.category.fullPath}" — reporting no category found.`,
-    );
-    console.log('=== Classification complete: no category found ===');
     return null;
   }
 
-  if (walkResult.uncertain) {
-    console.log(
-      `=== Classification complete (needs review): ${walkResult.category.fullPath} ===`,
-    );
-  } else {
-    console.log(`=== Classification complete: ${walkResult.category.fullPath} ===`);
-  }
-
-  return { category: walkResult.category, needsReview: walkResult.uncertain };
+  return {
+    category: walkResult.category,
+    needsReview: walkResult.uncertain,
+  };
 }

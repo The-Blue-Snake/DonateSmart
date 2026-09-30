@@ -22,10 +22,20 @@ export default function PhotoScan() {
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
   const [detectedCategory, setDetectedCategory] =
     useState<TaxonomyCategory | null>(null);
-  const [detectedLabel, setDetectedLabel] = useState('');
   const [needsReview, setNeedsReview] = useState(false);
 
   const cameraRef = useRef<CameraView>(null);
+  const detectedCategoryName = detectedCategory?.name ?? '';
+
+  const clearClassificationResult = () => {
+    setDetectedCategory(null);
+    setNeedsReview(false);
+  };
+
+  const resetScanFlow = () => {
+    setCapturedUri(null);
+    clearClassificationResult();
+  };
 
   if (!permission) {
     return <View style={styles.blackContainer} />;
@@ -82,26 +92,19 @@ export default function PhotoScan() {
         throw new Error('The camera did not return a photo.');
       }
 
-      // Freeze the camera on the exact photo that was captured.
       setCapturedUri(photo.uri);
 
       const result = await classifyImageAt(photo.uri);
 
       if (result) {
         setDetectedCategory(result.category);
-        setDetectedLabel(result.category.name);
         setNeedsReview(result.needsReview);
       } else {
-        // No confident, verified category — not an error, just nothing found.
-        setDetectedCategory(null);
-        setDetectedLabel('');
-        setNeedsReview(false);
+        clearClassificationResult();
       }
     } catch (error) {
       console.error('Image recognition failed:', error);
-      setDetectedCategory(null);
-      setDetectedLabel('');
-      setNeedsReview(false);
+      clearClassificationResult();
     } finally {
       setIsAnalyzing(false);
     }
@@ -124,34 +127,50 @@ export default function PhotoScan() {
     router.replace({
       pathname: '/manual-entry',
       params: {
-        prefill: detectedLabel,
+        prefill: detectedCategoryName,
       },
     });
   };
 
   const retakePicture = () => {
-    setCapturedUri(null);
-    setDetectedCategory(null);
-    setDetectedLabel('');
-    setNeedsReview(false);
+    resetScanFlow();
   };
+
+  const hasDetectedCategory = Boolean(detectedCategory);
+  const showCamera = !capturedUri && !isAnalyzing;
+  const showResult = capturedUri && !isAnalyzing;
+
+  const getPrimaryButtonStyle = (pressed: boolean) => [
+    styles.primaryButton,
+    pressed && styles.primaryButtonPressed,
+  ];
+
+  const getSecondaryButtonStyle = (pressed: boolean) => [
+    styles.secondaryActionButton,
+    pressed && styles.secondaryActionButtonPressed,
+  ];
+
+  const getCaptureButtonStyle = (pressed: boolean) => [
+    styles.captureButton,
+    pressed && styles.captureButtonPressed,
+  ];
 
   return (
     <View style={styles.blackContainer}>
-      {!capturedUri ? (
+      {showCamera ? (
         <CameraView
           ref={cameraRef}
           style={styles.camera}
         />
       ) : null}
 
-      {capturedUri && (
+      {capturedUri ? (
         <Image
           source={{ uri: capturedUri }}
           style={styles.capturedImage}
           resizeMode="cover"
         />
-      )}
+      ) : null}
 
       {isAnalyzing ? (
         <View style={styles.analyzingOverlay}>
@@ -160,11 +179,11 @@ export default function PhotoScan() {
             color={Colors.white}
           />
 
-          <Text style={styles.analyzingText}>
-            Identifying item…
-          </Text>
+          <Text style={styles.analyzingText}>Identifying item…</Text>
         </View>
-      ) : capturedUri ? (
+      ) : null}
+
+      {showResult ? (
         <SafeAreaView style={styles.resultWrap}>
           <View style={styles.resultContent}>
             <View style={styles.card}>
@@ -172,29 +191,27 @@ export default function PhotoScan() {
 
               <View style={styles.cardDivider} />
 
-              {detectedCategory ? (
+              {hasDetectedCategory ? (
                 <View style={styles.categoryInfo}>
                   <Text style={styles.categoryName}>
-                    {detectedCategory.name}
+                    {detectedCategory?.name}
                   </Text>
 
                   <Text style={styles.categoryPath}>
-                    {detectedCategory.fullPath}
+                    {detectedCategory?.fullPath}
                   </Text>
 
-                  {needsReview && (
+                  {needsReview ? (
                     <View style={styles.reviewBadge}>
                       <Text style={styles.reviewBadgeText}>
                         Best guess — please double check
                       </Text>
                     </View>
-                  )}
+                  ) : null}
                 </View>
               ) : (
                 <View style={styles.notFoundState}>
-                  <Text style={styles.notFoundTitle}>
-                    Category not found
-                  </Text>
+                  <Text style={styles.notFoundTitle}>Category not found</Text>
 
                   <Text style={styles.notFoundText}>
                     You can choose a category manually.
@@ -204,38 +221,25 @@ export default function PhotoScan() {
             </View>
 
             <View style={styles.actions}>
-              {detectedCategory ? (
+              {hasDetectedCategory ? (
                 <>
                   <Pressable
-                    style={({ pressed }) => [
-                      styles.primaryButton,
-                      pressed && styles.primaryButtonPressed,
-                    ]}
+                    style={({ pressed }) => getPrimaryButtonStyle(pressed)}
                     onPress={confirmDetectedCategory}
                   >
-                    <Text style={styles.primaryButtonText}>
-                      Confirm Category
-                    </Text>
+                    <Text style={styles.primaryButtonText}>Confirm Category</Text>
                   </Pressable>
 
                   <Pressable
-                    style={({ pressed }) => [
-                      styles.secondaryActionButton,
-                      pressed && styles.secondaryActionButtonPressed,
-                    ]}
+                    style={({ pressed }) => getSecondaryButtonStyle(pressed)}
                     onPress={editCategory}
                   >
-                    <Text style={styles.secondaryActionText}>
-                      Edit Category
-                    </Text>
+                    <Text style={styles.secondaryActionText}>Edit Category</Text>
                   </Pressable>
                 </>
               ) : (
                 <Pressable
-                  style={({ pressed }) => [
-                    styles.primaryButton,
-                    pressed && styles.primaryButtonPressed,
-                  ]}
+                  style={({ pressed }) => getPrimaryButtonStyle(pressed)}
                   onPress={editCategory}
                 >
                   <Text style={styles.primaryButtonText}>
@@ -256,19 +260,18 @@ export default function PhotoScan() {
             </View>
           </View>
         </SafeAreaView>
-      ) : (
+      ) : null}
+
+      {!capturedUri && !isAnalyzing ? (
         <View style={styles.captureBar}>
           <Pressable
-            style={({ pressed }) => [
-              styles.captureButton,
-              pressed && styles.captureButtonPressed,
-            ]}
+            style={({ pressed }) => getCaptureButtonStyle(pressed)}
             onPress={handleCapture}
           >
             <View style={styles.captureButtonInner} />
           </Pressable>
         </View>
-      )}
+      ) : null}
     </View>
   );
 }
