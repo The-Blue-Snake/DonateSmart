@@ -1,7 +1,7 @@
+import { useAppTabNavigation } from '@/components/app-tab-navigation';
 import { Colors, Spacing } from '@/constants/theme';
 import type { TaxonomyCategory } from '@/constants/types';
 import taxonomyData from '@/data/taxonomy.json';
-import { useAppTabNavigation } from '@/components/app-tab-navigation';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {

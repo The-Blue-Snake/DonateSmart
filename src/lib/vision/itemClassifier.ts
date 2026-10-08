@@ -2,24 +2,24 @@
 import taxonomyData from '@/data/taxonomy.json';
 import { Blob as ExpoBlob } from 'expo-blob';
 
-const MISTRAL_API_URL = 'https://api.mistral.ai/v1/chat/completions';
-const MISTRAL_MODEL = 'mistral-small-2603';
-const REQUEST_TIMEOUT_MS = 30_000;
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/interactions';
+const GEMINI_MODEL = 'gemini-3.1-flash-lite';
+const REQUEST_TIMEOUT_MS = 120_000;
 const MAX_EXAMPLES_PER_CANDIDATE = 4;
 const UNCERTAIN_ID = 'uncertain';
 
 const taxonomy = taxonomyData as TaxonomyCategory[];
 
-type MistralResponse = {
-  choices?: Array<{
-    message?: {
-      content?: string;
-    };
-  }>;
+type GeminiResponse = {
+  steps?: {
+    type?: string;
+    content?: {
+      type?: string;
+      text?: string;
+    }[];
+  }[];
   error?: {
     message?: string;
-    type?: string;
-    code?: string;
   };
 };
 
@@ -30,7 +30,6 @@ export type ClassificationResult = {
 
 type SelectionResult = {
   categoryId: string | null;
-  reasoning: string | null;
 };
 
 type WalkResult = {
@@ -39,7 +38,7 @@ type WalkResult = {
 };
 
 function getApiKey(): string {
-  return process.env.EXPO_PUBLIC_MISTRAL_API_KEY ?? '';
+  return process.env.EXPO_PUBLIC_GOOGLE_AI_STUDIO_API_KEY ?? '';
 }
 
 function getMimeType(uri: string): string {
@@ -58,6 +57,7 @@ function getMimeType(uri: string): string {
 }
 
 async function imageUriToDataUrl(uri: string): Promise<string> {
+  console.log(`Fetching image from ${uri}…`);
   const response = await fetch(uri);
 
   if (!response.ok) {
@@ -67,6 +67,9 @@ async function imageUriToDataUrl(uri: string): Promise<string> {
   const blob = new ExpoBlob([await response.arrayBuffer()], {
     type: getMimeType(uri),
   });
+  console.log(
+    `Image fetched (${blob.size} bytes, ${blob.type || 'unknown type'}). Encoding to base64…`,
+  );
 
   const bytes = await blob.bytes();
   let binary = '';
@@ -81,7 +84,7 @@ async function imageUriToDataUrl(uri: string): Promise<string> {
   try {
     return `data:${getMimeType(uri)};base64,${globalThis.btoa(binary)}`;
   } catch {
-    throw new Error('Unable to convert the captured image to base64.');
+    throw new Error('Unable to convert image to base64.');
   }
 }
 
@@ -98,8 +101,8 @@ async function fetchWithTimeout(
       signal: controller.signal,
     });
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('Mistral took too long to respond.');
+    if (controller.signal.aborted) {
+      throw new Error('Gemini took too long to respond.');
     }
 
     throw error;
@@ -108,34 +111,40 @@ async function fetchWithTimeout(
   }
 }
 
-function parseSelection(content: string): SelectionResult {
+function parseSelection(
+  content: string,
+  candidates: TaxonomyCategory[],
+): SelectionResult {
   let parsed: unknown;
 
   try {
     parsed = JSON.parse(content);
   } catch {
-    throw new Error('Mistral returned an invalid category selection.');
+    throw new Error(
+      'Gemini returned an incomplete or invalid category response. Please try again.',
+    );
   }
 
   if (!parsed || typeof parsed !== 'object') {
-    throw new Error('Mistral returned an invalid category selection.');
+    throw new Error('Gemini returned an invalid category selection.');
   }
 
   const result = parsed as Record<string, unknown>;
 
   if (typeof result.categoryId !== 'string' || !result.categoryId.trim()) {
-    throw new Error('Mistral did not select a taxonomy category.');
+    throw new Error('Gemini did not select a taxonomy category.');
   }
 
   const categoryId = result.categoryId.trim();
-  const reasoning =
-    typeof result.reasoning === 'string' && result.reasoning.trim()
-      ? result.reasoning.trim()
-      : null;
+  if (
+    categoryId !== UNCERTAIN_ID &&
+    !candidates.some((candidate) => candidate.id === categoryId)
+  ) {
+    throw new Error('Gemini selected a category outside the provided options.');
+  }
 
   return {
     categoryId: categoryId === UNCERTAIN_ID ? null : categoryId,
-    reasoning,
   };
 }
 
@@ -145,11 +154,11 @@ function parseConfirmation(content: string): boolean {
   try {
     parsed = JSON.parse(content);
   } catch {
-    throw new Error('Mistral returned an invalid verification response.');
+    throw new Error('Gemini returned an invalid verification response.');
   }
 
   if (!parsed || typeof parsed !== 'object') {
-    throw new Error('Mistral returned an invalid verification response.');
+    throw new Error('Gemini returned an invalid verification response.');
   }
 
   return (parsed as Record<string, unknown>).confirmed === true;
@@ -183,7 +192,15 @@ function getChildrenCached(category: TaxonomyCategory): TaxonomyCategory[] {
 
 function getExampleNames(category: TaxonomyCategory): string[] {
   const children = getChildrenCached(category);
-  return children.slice(0, MAX_EXAMPLES_PER_CANDIDATE).map((child) => child.name);
+  return [...children]
+    .sort((a, b) => {
+      const childCountDifference =
+        getChildrenCached(b).length - getChildrenCached(a).length;
+
+      return childCountDifference || a.name.localeCompare(b.name);
+    })
+    .slice(0, MAX_EXAMPLES_PER_CANDIDATE)
+    .map((child) => child.name);
 }
 
 function formatCandidate(category: TaxonomyCategory): string {
@@ -196,40 +213,89 @@ function formatCandidate(category: TaxonomyCategory): string {
   return `${category.id}: ${category.name}`;
 }
 
-async function callMistral(
+async function requestGemini(
   imageDataUrl: string,
-  candidates: TaxonomyCategory[],
-): Promise<SelectionResult> {
+  systemInstruction: string,
+  prompt: string,
+  maxOutputTokens: number,
+  outputSchema: Record<string, unknown>,
+): Promise<Response> {
   const apiKey = getApiKey();
 
   if (!apiKey) {
     throw new Error(
-      'Mistral API key is missing. Add EXPO_PUBLIC_MISTRAL_API_KEY to your environment.',
+      'Google AI Studio API key is missing. Add EXPO_PUBLIC_GOOGLE_AI_STUDIO_API_KEY to your environment.',
     );
   }
 
-  const candidateText = candidates.map(formatCandidate).join('\n');
+  const image = /^data:([^;]+);base64,(.+)$/.exec(imageDataUrl);
+  if (!image) {
+    throw new Error('The image could not be prepared for Gemini.');
+  }
 
-  const response = await fetchWithTimeout(MISTRAL_API_URL, {
+  return fetchWithTimeout(GEMINI_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
+      'x-goog-api-key': apiKey,
     },
     body: JSON.stringify({
-      model: MISTRAL_MODEL,
-      temperature: 0,
-      max_tokens: 200,
-      response_format: {
-        type: 'json_object',
-      },
-      messages: [
+      model: GEMINI_MODEL,
+      system_instruction: systemInstruction,
+      input: [
         {
-          role: 'system',
-          content: `You classify a visible donation item into a Google Product Taxonomy tree.
+          type: 'text',
+          text: prompt,
+        },
+        {
+          type: 'image',
+          data: image[2],
+          mime_type: image[1],
+        },
+      ],
+      generation_config: {
+        temperature: 0,
+        max_output_tokens: maxOutputTokens,
+        thinking_level: 'low',
+      },
+      response_format: {
+        type: 'text',
+        mime_type: 'application/json',
+        schema: outputSchema,
+      },
+    }),
+  });
+}
+
+function getGeminiContent(data: GeminiResponse): string | null {
+  const parts = data.steps
+    ?.filter((step) => step.type === 'model_output')
+    .flatMap((step) => step.content ?? []);
+  const content = parts
+    ?.filter((part) => part.type === 'text')
+    .map((part) => part.text)
+    .filter((text): text is string => typeof text === 'string')
+    .join('');
+
+  return content?.trim() || null;
+}
+
+async function callGemini(
+  imageDataUrl: string,
+  candidates: TaxonomyCategory[],
+): Promise<SelectionResult> {
+  const candidateText = candidates.map(formatCandidate).join('\n');
+
+  console.log(
+    `Sending ${candidates.length} candidate(s) to Gemini:\n${candidateText}`,
+  );
+
+  const response = await requestGemini(
+    imageDataUrl,
+    `You classify a visible donation item into a Google Product Taxonomy tree.
 Choose exactly one category from the candidate list below that clearly and confidently
 matches the main physical item in the image. Base your choice on what the item literally
-is, not on loosely related activities or contexts it could be used in.
+is, not on loosely related activities or contexts it could be used for.
 
 Some candidates list example items in parentheses — these show what belongs one level
 deeper in that branch, to help you judge fit. They are illustrative, not exhaustive.
@@ -238,29 +304,26 @@ If NONE of the candidates are a good match — the item doesn't belong in any of
 options, or the image is too unclear/ambiguous to tell — respond with "${UNCERTAIN_ID}"
 instead of guessing. Do not force a pick just to select something.
 
-Return ONLY valid JSON in this exact shape:
-{"reasoning":"one or two sentences on what you see and why you picked this category","categoryId":"ID"}
-where ID is either one of the candidate IDs below or "${UNCERTAIN_ID}".
+Return only the selected category ID as JSON. Do not include explanations or any
+additional fields. The ID must exactly match one of the candidate IDs below or
+"${UNCERTAIN_ID}".
 
 Candidate categories:
 ${candidateText}`,
+    'Select the best matching category for the main physical item in this photograph. If none confidently match, say so.',
+    128,
+    {
+      type: 'object',
+      properties: {
+        categoryId: {
+          type: 'string',
+          enum: [...candidates.map((candidate) => candidate.id), UNCERTAIN_ID],
         },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: 'Select the best matching category for the main physical item in this photograph. If none confidently match, say so.',
-            },
-            {
-              type: 'image_url',
-              image_url: imageDataUrl,
-            },
-          ],
-        },
-      ],
-    }),
-  });
+      },
+      required: ['categoryId'],
+      additionalProperties: false,
+    },
+  );
 
   if (!response.ok) {
     let details = '';
@@ -271,110 +334,106 @@ ${candidateText}`,
       // Ignore failure to read the error body.
     }
 
-    if (response.status === 401) {
-      throw new Error('Mistral API key is invalid.');
+    console.log(`Gemini request failed with status ${response.status}.`);
+
+    if (response.status === 401 || details.includes('API_KEY_INVALID')) {
+      throw new Error('Google AI Studio API key is invalid.');
     }
 
     if (response.status === 429) {
-      throw new Error('Mistral rate limit reached. Please try again in a moment.');
+      throw new Error('Google AI Studio rate limit reached. Please try again in a moment.');
     }
 
     throw new Error(
       details
-        ? `Mistral API error (${response.status}): ${details}`
-        : `Mistral API error (${response.status}).`,
+        ? `Google AI Studio API error (${response.status}): ${details}`
+        : `Google AI Studio API error (${response.status}).`,
     );
   }
 
-  const data = (await response.json()) as MistralResponse;
+  const data = (await response.json()) as GeminiResponse;
 
   if (data.error) {
     const message =
       typeof data.error.message === 'string' && data.error.message.trim()
         ? data.error.message
-        : 'Mistral returned an unspecified API error.';
+        : 'Gemini returned an unspecified API error.';
 
-    throw new Error(`Mistral API error: ${message}`);
+    throw new Error(`Gemini API error: ${message}`);
   }
 
-  const content = data.choices?.[0]?.message?.content;
+  const content = getGeminiContent(data);
 
-  if (typeof content !== 'string' || !content.trim()) {
-    throw new Error(
-      'Mistral returned no usable result. The response did not contain choices[0].message.content.',
+  if (!content) {
+    throw new Error('Gemini returned no usable result.');
+  }
+
+  console.log(`Gemini raw response: ${content}`);
+
+  const selection = parseSelection(content, candidates);
+
+  if (selection.categoryId === null) {
+    console.log('Gemini was uncertain — no candidate confidently matched.');
+  } else {
+    const picked = candidates.find((candidate) => candidate.id === selection.categoryId);
+    console.log(
+      `Gemini selected: ${selection.categoryId}${picked ? ` (${picked.name})` : ' (not in candidate list!)'}`,
     );
   }
 
-  return parseSelection(content);
+  return selection;
 }
 
 async function verifyFinalCategory(
   imageDataUrl: string,
   category: TaxonomyCategory,
 ): Promise<boolean> {
-  const apiKey = getApiKey();
+  console.log(`Verifying final category: ${category.fullPath}`);
 
-  if (!apiKey) {
-    throw new Error(
-      'Mistral API key is missing. Add EXPO_PUBLIC_MISTRAL_API_KEY to your environment.',
-    );
-  }
-
-  const response = await fetchWithTimeout(MISTRAL_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: MISTRAL_MODEL,
-      temperature: 0,
-      max_tokens: 150,
-      response_format: {
-        type: 'json_object',
-      },
-      messages: [
-        {
-          role: 'system',
-          content: `You are double-checking a product classification.
+  const response = await requestGemini(
+    imageDataUrl,
+    `You are double-checking a product classification.
 Given a photo and a proposed taxonomy path, decide whether the path genuinely and
 literally describes the main physical item in the photo — not something loosely
 associated with it. The path may stop short of maximum specificity if Google's
 taxonomy simply doesn't go any deeper for that kind of item — that's still a valid
 confirmation as long as the path itself is correct.
 
-Return ONLY valid JSON in this exact shape:
-{"reasoning":"one sentence on whether the path fits","confirmed":true|false}`,
-        },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: `Proposed category path: "${category.fullPath}". Does this correctly describe the main physical item in the image?`,
-            },
-            {
-              type: 'image_url',
-              image_url: imageDataUrl,
-            },
-          ],
-        },
-      ],
-    }),
-  });
+Return only JSON with a single boolean field named "confirmed". Do not include
+reasoning or any additional fields.`,
+    `Proposed category path: "${category.fullPath}". Does this correctly describe the main physical item in the image?`,
+    64,
+    {
+      type: 'object',
+      properties: {
+        confirmed: { type: 'boolean' },
+      },
+      required: ['confirmed'],
+      additionalProperties: false,
+    },
+  );
 
   if (!response.ok) {
+    console.log(
+      `Verification call failed with status ${response.status}, treating as unconfirmed.`,
+    );
     return false;
   }
 
-  const data = (await response.json()) as MistralResponse;
-  const content = data.choices?.[0]?.message?.content;
+  const data = (await response.json()) as GeminiResponse;
+  const content = getGeminiContent(data);
 
-  if (typeof content !== 'string' || !content.trim()) {
+  if (data.error || !content) {
+    console.log('Verification returned no usable content, treating as unconfirmed.');
     return false;
   }
 
-  return parseConfirmation(content);
+  console.log(`Verification raw response: ${content}`);
+
+  const confirmed = parseConfirmation(content);
+  console.log(confirmed ? 'Verification: confirmed.' : 'Verification: rejected.');
+
+  return confirmed;
 }
 
 async function walkTree(imageDataUrl: string): Promise<WalkResult | null> {
@@ -391,24 +450,40 @@ async function walkTree(imageDataUrl: string): Promise<WalkResult | null> {
         throw new Error('The taxonomy has no selectable categories.');
       }
 
+      console.log(
+        `Reached a leaf category with no children: ${selectedCategory.name}. Done.`,
+      );
+
       return { category: selectedCategory, uncertain: false };
     }
 
-    const { categoryId: selectedId } = await callMistral(imageDataUrl, candidates);
+    console.log(
+      `--- Step ${step}: selecting among ${candidates.length} option(s) at level ${candidates[0].level} ---`,
+    );
+
+    const { categoryId: selectedId } = await callGemini(imageDataUrl, candidates);
 
     if (selectedId === null) {
       if (!selectedCategory) {
+        console.log('Uncertain at the very first level — no category to fall back to.');
         return null;
       }
+
+      console.log(
+        `No confident match among children of "${selectedCategory.name}" at level ${candidates[0].level} — ` +
+          `stopping here rather than guessing. This may just mean Google's taxonomy isn't more ` +
+          `specific for this item, so "${selectedCategory.name}" will be verified as-is.`,
+      );
 
       return { category: selectedCategory, uncertain: true };
     }
 
     const nextCategory = candidates.find((category) => category.id === selectedId);
     if (!nextCategory) {
-      throw new Error('Mistral selected a category outside the provided options.');
+      throw new Error('Gemini selected a category outside the provided options.');
     }
 
+    console.log(`Descending into: ${nextCategory.fullPath}`);
     selectedCategory = nextCategory;
     step += 1;
   }
@@ -417,16 +492,32 @@ async function walkTree(imageDataUrl: string): Promise<WalkResult | null> {
 export async function classifyImageAt(
   imageUri: string,
 ): Promise<ClassificationResult | null> {
+  console.log('=== Starting classification ===');
+  console.log('Preparing image for Gemini…');
+
   const imageDataUrl = await imageUriToDataUrl(imageUri);
   const walkResult = await walkTree(imageDataUrl);
 
   if (!walkResult) {
+    console.log('=== Classification complete: no confident category found ===');
     return null;
   }
 
   const confirmed = await verifyFinalCategory(imageDataUrl, walkResult.category);
   if (!confirmed) {
+    console.log(
+      `Verification rejected "${walkResult.category.fullPath}" — reporting no category found.`,
+    );
+    console.log('=== Classification complete: no category found ===');
     return null;
+  }
+
+  if (walkResult.uncertain) {
+    console.log(
+      `=== Classification complete (needs review): ${walkResult.category.fullPath} ===`,
+    );
+  } else {
+    console.log(`=== Classification complete: ${walkResult.category.fullPath} ===`);
   }
 
   return {
