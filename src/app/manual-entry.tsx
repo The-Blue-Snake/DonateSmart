@@ -27,8 +27,10 @@ export default function ManualEntry() {
     }
 
     return (taxonomyData as TaxonomyCategory[])
-      .filter((category) =>
-        category.fullPath.toLowerCase().includes(normalizedQuery),
+      .filter(
+        (category) =>
+          category.topLevel !== 'Mature' &&
+          category.fullPath.toLowerCase().includes(normalizedQuery),
       )
       .slice(0, 50);
   }, [query]);
@@ -109,7 +111,7 @@ export default function ManualEntry() {
           ) : (
             <View style={styles.placeholder}>
               <Text style={styles.placeholderText}>
-                Search for something you're donating
+                Search for something you&apos;re donating
               </Text>
             </View>
           )}

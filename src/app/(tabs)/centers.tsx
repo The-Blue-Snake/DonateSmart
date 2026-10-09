@@ -447,8 +447,8 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
   const listRef =
     useRef<Animated.FlatList<CarouselItem>>(null);
 
-  const scrollY =
-    useRef(new Animated.Value(0)).current;
+  const [scrollY] =
+    useState(() => new Animated.Value(0));
 
   const [activeIndex, setActiveIndex] =
     useState(0);
@@ -472,9 +472,13 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
     );
 
   useEffect(() => {
-    setShowOpenOnly(
-      Boolean(selectedCategory || selectedTopLevel),
-    );
+    const frame = requestAnimationFrame(() => {
+      setShowOpenOnly(
+        Boolean(selectedCategory || selectedTopLevel),
+      );
+    });
+
+    return () => cancelAnimationFrame(frame);
   }, [selectedCategory, selectedTopLevel]);
 
   const [sortMode, setSortMode] =
@@ -491,8 +495,8 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
   const [expandedCenter, setExpandedCenter] =
     useState<CenterWithDistance | null>(null);
 
-  const expansionProgress =
-    useRef(new Animated.Value(0)).current;
+  const [expansionProgress] =
+    useState(() => new Animated.Value(0));
 
   const otherItemsFade =
     expansionProgress.interpolate({
@@ -570,26 +574,27 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
     };
   }, [centers]);
 
-  const matchesRequestedCategory = (
-    acceptedCategory: string,
-  ) => {
-    const requestedPaths = [
-      selectedCategory,
-      selectedTopLevel,
-    ].filter(Boolean) as string[];
+  const matchesRequestedCategory = useCallback(
+    (acceptedCategory: string) => {
+      const requestedPaths = [
+        selectedCategory,
+        selectedTopLevel,
+      ].filter(Boolean) as string[];
 
-    if (!requestedPaths.length) {
-      return true;
-    }
+      if (!requestedPaths.length) {
+        return true;
+      }
 
-    return requestedPaths.some(
-      (requestedPath) =>
-        isCategoryMatch(
-          acceptedCategory,
-          requestedPath,
-        ),
-    );
-  };
+      return requestedPaths.some(
+        (requestedPath) =>
+          isCategoryMatch(
+            acceptedCategory,
+            requestedPath,
+          ),
+      );
+    },
+    [selectedCategory, selectedTopLevel],
+  );
 
   const visibleCenters = useMemo(() => {
     const normalizedQuery =
@@ -684,6 +689,7 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
     showOpenOnly,
     savedIds,
     sortMode,
+    matchesRequestedCategory,
   ]);
 
   const carouselItems =
@@ -720,25 +726,25 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
     const item =
       carouselItems[centerIndex];
 
-    setActiveIndex(centerIndex);
-
-    setExpandedCenter({
-      center: item.center,
-      distance: item.distance,
-    });
-
-    setExpandedIndex(centerIndex);
-
     expansionProgress.stopAnimation();
     expansionProgress.setValue(1);
 
-    requestAnimationFrame(() => {
+    const frame = requestAnimationFrame(() => {
+      setActiveIndex(centerIndex);
+      setExpandedCenter({
+        center: item.center,
+        distance: item.distance,
+      });
+      setExpandedIndex(centerIndex);
+
       listRef.current?.scrollToIndex({
         index: centerIndex,
         animated: false,
         viewPosition: 0.5,
       });
     });
+
+    return () => cancelAnimationFrame(frame);
   }, [
     centerId,
     carouselItems,
@@ -746,20 +752,22 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
   ]);
 
   useEffect(() => {
-    setActiveIndex(0);
+    const frame = requestAnimationFrame(() => {
+      setActiveIndex(0);
 
-    if (!centerId) {
-      setExpandedIndex(null);
-      setExpandedCenter(null);
-      expansionProgress.setValue(0);
-    }
+      if (!centerId) {
+        setExpandedIndex(null);
+        setExpandedCenter(null);
+        expansionProgress.setValue(0);
+      }
 
-    requestAnimationFrame(() => {
       listRef.current?.scrollToOffset({
         offset: 0,
         animated: false,
       });
     });
+
+    return () => cancelAnimationFrame(frame);
   }, [
     query,
     selectedCategory,
@@ -767,6 +775,8 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
     showSavedOnly,
     showOpenOnly,
     sortMode,
+    centerId,
+    expansionProgress,
   ]);
 
   const resolvePhotoSource = (
@@ -1876,7 +1886,7 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           getItemLayout={getItemLayout}
-          ListHeaderComponent={renderSearchHeader()}
+          ListHeaderComponent={renderSearchHeader}
           initialNumToRender={4}
           maxToRenderPerBatch={4}
           updateCellsBatchingPeriod={50}

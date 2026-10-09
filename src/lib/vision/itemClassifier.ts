@@ -8,7 +8,9 @@ const REQUEST_TIMEOUT_MS = 120_000;
 const MAX_EXAMPLES_PER_CANDIDATE = 4;
 const UNCERTAIN_ID = 'uncertain';
 
-const taxonomy = taxonomyData as TaxonomyCategory[];
+const taxonomy = (taxonomyData as TaxonomyCategory[]).filter(
+  (category) => category.topLevel !== 'Mature',
+);
 
 type GeminiResponse = {
   steps?: {

@@ -88,8 +88,12 @@ export default function MapScreen({
       return;
     }
 
-    setMapFocusId(focusedCenterId);
-    setSelectedId(focusedCenterId);
+    const frame = requestAnimationFrame(() => {
+      setMapFocusId(focusedCenterId);
+      setSelectedId(focusedCenterId);
+    });
+
+    return () => cancelAnimationFrame(frame);
   }, [focusedCenterId]);
 
   useEffect(() => {
