@@ -1,5 +1,5 @@
-import { Colors, Spacing } from '@/constants/theme';
 import { useAppTabNavigation } from '@/components/app-tab-navigation';
+import { Colors, Spacing } from '@/constants/theme';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -18,12 +18,23 @@ type ProductInfo = {
   category?: string;
 };
 
+type BarcodeLookupResponse = {
+  products?: {
+    title?: string;
+    brand?: string;
+    category?: string;
+  }[];
+  message?: string;
+  error?: string;
+};
+
 export default function BarcodeScan() {
   const { navigateToTab } = useAppTabNavigation();
   const [permission, requestPermission] = useCameraPermissions();
   const [scannedCode, setScannedCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [product, setProduct] = useState<ProductInfo | null>(null);
+  const [lookupError, setLookupError] = useState<string | null>(null);
 
   const requestIdRef = useRef(0);
   const scannedCodeRef = useRef<string | null>(null);
@@ -62,65 +73,61 @@ export default function BarcodeScan() {
     );
   }
 
-  const tryUpcItemDb = async (
-    upc: string,
-  ): Promise<ProductInfo | null> => {
-    const response = await fetch(
-      `https://api.upcitemdb.com/prod/trial/lookup?upc=${upc}`,
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.warn('upcitemdb', response.status, data);
-      throw new Error(`upcitemdb ${response.status}`);
-    }
-
-    if (!data.items || data.items.length === 0) {
-      return null;
-    }
-
-    const item = data.items[0];
-
-    return {
-      name: item.title,
-      brand: item.brand,
-      category: item.category,
-    };
-  };
-
   const lookupProduct = async (upc: string) => {
     const currentRequestId = ++requestIdRef.current;
+    const apiKey = process.env.EXPO_PUBLIC_BARCODE_LOOKUP_API_KEY;
 
     setLoading(true);
+    setLookupError(null);
 
-    for (const lookup of [tryUpcItemDb]) {
-      try {
-        const result = await lookup(upc);
+    try {
+      if (!apiKey) {
+        throw new Error(
+          'Barcode Lookup API key is missing. Add EXPO_PUBLIC_BARCODE_LOOKUP_API_KEY to your environment.',
+        );
+      }
 
-        if (currentRequestId !== requestIdRef.current) {
-          return;
-        }
+      const response = await fetch(
+        `https://api.barcodelookup.com/v3/products?barcode=${encodeURIComponent(upc)}&formatted=y&key=${encodeURIComponent(apiKey)}`,
+      );
+      const data: BarcodeLookupResponse = await response.json();
 
-        if (result) {
-          setProduct(result);
-          setLoading(false);
-          return;
-        }
-      } catch {
-        if (currentRequestId !== requestIdRef.current) {
-          return;
-        }
+      if (!response.ok) {
+        console.warn('Barcode Lookup', response.status, data);
+        throw new Error(
+          data.message || data.error || `Barcode Lookup returned ${response.status}.`,
+        );
+      }
 
-        continue;
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
+      const item = data.products?.[0];
+      setProduct(
+        item
+          ? {
+              name: item.title?.trim() || upc,
+              brand: item.brand?.trim() || undefined,
+              category: item.category?.trim() || undefined,
+            }
+          : null,
+      );
+    } catch (error) {
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
+      console.error('Barcode Lookup request failed', error);
+      setProduct(null);
+      setLookupError(
+        error instanceof Error ? error.message : 'Barcode Lookup request failed.',
+      );
+    } finally {
+      if (currentRequestId === requestIdRef.current) {
+        setLoading(false);
       }
     }
-
-    if (currentRequestId !== requestIdRef.current) {
-      return;
-    }
-
-    setLoading(false);
   };
 
   const handleBarcodeScanned = ({ data }: { data: string }) => {
@@ -138,6 +145,7 @@ export default function BarcodeScan() {
     scannedCodeRef.current = null;
     setScannedCode(null);
     setProduct(null);
+    setLookupError(null);
     setLoading(false);
   };
 
@@ -243,7 +251,15 @@ export default function BarcodeScan() {
                 </View>
               ) : null}
 
-              {!loading && !categoryParts.fullPath ? (
+              {!loading && lookupError ? (
+                <View style={styles.notFoundState}>
+                  <Text style={styles.notFoundTitle}>Lookup failed</Text>
+
+                  <Text style={styles.notFoundText}>{lookupError}</Text>
+                </View>
+              ) : null}
+
+              {!loading && !lookupError && !categoryParts.fullPath ? (
                 <View style={styles.notFoundState}>
                   <Text style={styles.notFoundTitle}>
                     Category not found

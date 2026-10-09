@@ -1,4 +1,4 @@
-﻿import type { TaxonomyCategory } from '@/constants/types';
+import type { TaxonomyCategory } from '@/constants/types';
 import taxonomyData from '@/data/taxonomy.json';
 import { Blob as ExpoBlob } from 'expo-blob';
 
@@ -30,6 +30,7 @@ export type ClassificationResult = {
 
 type SelectionResult = {
   categoryId: string | null;
+  reasoning: string | null;
 };
 
 type WalkResult = {
@@ -111,18 +112,13 @@ async function fetchWithTimeout(
   }
 }
 
-function parseSelection(
-  content: string,
-  candidates: TaxonomyCategory[],
-): SelectionResult {
+function parseSelection(content: string): SelectionResult {
   let parsed: unknown;
 
   try {
     parsed = JSON.parse(content);
   } catch {
-    throw new Error(
-      'Gemini returned an incomplete or invalid category response. Please try again.',
-    );
+    throw new Error('Gemini returned an invalid category selection.');
   }
 
   if (!parsed || typeof parsed !== 'object') {
@@ -136,32 +132,15 @@ function parseSelection(
   }
 
   const categoryId = result.categoryId.trim();
-  if (
-    categoryId !== UNCERTAIN_ID &&
-    !candidates.some((candidate) => candidate.id === categoryId)
-  ) {
-    throw new Error('Gemini selected a category outside the provided options.');
-  }
+  const reasoning =
+    typeof result.reasoning === 'string' && result.reasoning.trim()
+      ? result.reasoning.trim()
+      : null;
 
   return {
     categoryId: categoryId === UNCERTAIN_ID ? null : categoryId,
+    reasoning,
   };
-}
-
-function parseConfirmation(content: string): boolean {
-  let parsed: unknown;
-
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    throw new Error('Gemini returned an invalid verification response.');
-  }
-
-  if (!parsed || typeof parsed !== 'object') {
-    throw new Error('Gemini returned an invalid verification response.');
-  }
-
-  return (parsed as Record<string, unknown>).confirmed === true;
 }
 
 function getChildren(category: TaxonomyCategory | null): TaxonomyCategory[] {
@@ -304,23 +283,21 @@ If NONE of the candidates are a good match — the item doesn't belong in any of
 options, or the image is too unclear/ambiguous to tell — respond with "${UNCERTAIN_ID}"
 instead of guessing. Do not force a pick just to select something.
 
-Return only the selected category ID as JSON. Do not include explanations or any
-additional fields. The ID must exactly match one of the candidate IDs below or
-"${UNCERTAIN_ID}".
+Return ONLY valid JSON in this exact shape:
+{"reasoning":"a few words on why you picked this category","categoryId":"ID"}
+where ID is either one of the candidate IDs below or "${UNCERTAIN_ID}".
 
 Candidate categories:
 ${candidateText}`,
     'Select the best matching category for the main physical item in this photograph. If none confidently match, say so.',
-    128,
+    200,
     {
       type: 'object',
       properties: {
-        categoryId: {
-          type: 'string',
-          enum: [...candidates.map((candidate) => candidate.id), UNCERTAIN_ID],
-        },
+        reasoning: { type: 'string' },
+        categoryId: { type: 'string' },
       },
-      required: ['categoryId'],
+      required: ['reasoning', 'categoryId'],
       additionalProperties: false,
     },
   );
@@ -370,7 +347,11 @@ ${candidateText}`,
 
   console.log(`Gemini raw response: ${content}`);
 
-  const selection = parseSelection(content, candidates);
+  const selection = parseSelection(content);
+
+  if (selection.reasoning) {
+    console.log(`Gemini's reasoning: ${selection.reasoning}`);
+  }
 
   if (selection.categoryId === null) {
     console.log('Gemini was uncertain — no candidate confidently matched.');
@@ -382,58 +363,6 @@ ${candidateText}`,
   }
 
   return selection;
-}
-
-async function verifyFinalCategory(
-  imageDataUrl: string,
-  category: TaxonomyCategory,
-): Promise<boolean> {
-  console.log(`Verifying final category: ${category.fullPath}`);
-
-  const response = await requestGemini(
-    imageDataUrl,
-    `You are double-checking a product classification.
-Given a photo and a proposed taxonomy path, decide whether the path genuinely and
-literally describes the main physical item in the photo — not something loosely
-associated with it. The path may stop short of maximum specificity if Google's
-taxonomy simply doesn't go any deeper for that kind of item — that's still a valid
-confirmation as long as the path itself is correct.
-
-Return only JSON with a single boolean field named "confirmed". Do not include
-reasoning or any additional fields.`,
-    `Proposed category path: "${category.fullPath}". Does this correctly describe the main physical item in the image?`,
-    64,
-    {
-      type: 'object',
-      properties: {
-        confirmed: { type: 'boolean' },
-      },
-      required: ['confirmed'],
-      additionalProperties: false,
-    },
-  );
-
-  if (!response.ok) {
-    console.log(
-      `Verification call failed with status ${response.status}, treating as unconfirmed.`,
-    );
-    return false;
-  }
-
-  const data = (await response.json()) as GeminiResponse;
-  const content = getGeminiContent(data);
-
-  if (data.error || !content) {
-    console.log('Verification returned no usable content, treating as unconfirmed.');
-    return false;
-  }
-
-  console.log(`Verification raw response: ${content}`);
-
-  const confirmed = parseConfirmation(content);
-  console.log(confirmed ? 'Verification: confirmed.' : 'Verification: rejected.');
-
-  return confirmed;
 }
 
 async function walkTree(imageDataUrl: string): Promise<WalkResult | null> {
@@ -472,7 +401,7 @@ async function walkTree(imageDataUrl: string): Promise<WalkResult | null> {
       console.log(
         `No confident match among children of "${selectedCategory.name}" at level ${candidates[0].level} — ` +
           `stopping here rather than guessing. This may just mean Google's taxonomy isn't more ` +
-          `specific for this item, so "${selectedCategory.name}" will be verified as-is.`,
+          `specific for this item, so keeping "${selectedCategory.name}" as the best match.`,
       );
 
       return { category: selectedCategory, uncertain: true };
@@ -500,15 +429,6 @@ export async function classifyImageAt(
 
   if (!walkResult) {
     console.log('=== Classification complete: no confident category found ===');
-    return null;
-  }
-
-  const confirmed = await verifyFinalCategory(imageDataUrl, walkResult.category);
-  if (!confirmed) {
-    console.log(
-      `Verification rejected "${walkResult.category.fullPath}" — reporting no category found.`,
-    );
-    console.log('=== Classification complete: no category found ===');
     return null;
   }
 
