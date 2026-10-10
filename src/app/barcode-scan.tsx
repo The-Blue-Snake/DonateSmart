@@ -186,7 +186,7 @@ export default function BarcodeScan() {
       return;
     }
 
-    router.dismiss();
+    router.dismissAll();
     navigateToTab('centers', {
       category: categoryParts.fullPath,
       topLevel: categoryParts.topLevel,

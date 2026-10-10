@@ -27,6 +27,7 @@ const TABS: {
 export default function AppTabs() {
   const insets = useSafeAreaInsets();
   const pagerRef = useRef<PagerView>(null);
+  const userSwipeRef = useRef(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const { currentTab, tabParams, navigateToTab } = useAppTabNavigation();
 
@@ -48,12 +49,20 @@ export default function AppTabs() {
         ref={pagerRef}
         style={styles.pager}
         initialPage={0}
+        onPageScrollStateChanged={(event) => {
+          if (event.nativeEvent.pageScrollState === 'dragging') {
+            userSwipeRef.current = true;
+          } else if (event.nativeEvent.pageScrollState === 'idle') {
+            userSwipeRef.current = false;
+          }
+        }}
         onPageSelected={(e) => {
           setActiveIndex(e.nativeEvent.position);
           const selectedTab = TABS[e.nativeEvent.position];
 
-          if (selectedTab) {
+          if (selectedTab && userSwipeRef.current) {
             navigateToTab(selectedTab.key);
+            userSwipeRef.current = false;
           }
         }}
       >
