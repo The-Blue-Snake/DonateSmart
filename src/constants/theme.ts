@@ -1,60 +1,47 @@
 
-/*
 const palette = {
-  primary: '#4C8763',
-  primaryDark: '#2E5940',
-
-  background: '#0A0C0A',
-  card: '#131512',
-
-  white: '#D9DED2',
-  text: '#D9DED2',
-  textMuted: '#7A8177',
-
-  border: '#242621',
-
-  accent: '#8FA35C',
-  accentDark: '#5C6A38',
-} as const;
-
-const palette = {
-  primary: '#5D7A9C',
-  primaryDark: '#3A4E63',
-
-  background: '#0A0A0C',
-  card: '#151618',
-
-  white: '#DADCDE',
-  text: '#DADCDE',
-  textMuted: '#7D818A',
-
-  border: '#242628',
-
-  accent: '#8CA4BE',
-  accentDark: '#576F87',
-} as const;
- 
-*/
-
-const palette = {
-  primary: '#3B82F6',
-  primaryDark: '#1D4ED8',
-  background: '#111111',
-  card: '#1E1E1E',
-  white: '#FAFAFA',
-  text: '#F5F5F5',
-  textMuted: '#A3A3A3',
-  border: '#333333',
-  accent: '#60A5FA',
-  accentDark: '#2563EB',
+  primary: '#D75C52',
+  primaryDark: '#B7473E',
+  secondary: '#5AA7A1',
+  secondaryDark: '#357B79',
+  background: '#D7D9D7',
+  card: '#F3F3F1',
+  white: '#FBFBFA',
+  text: '#1F2428',
+  textMuted: '#5F676D',
+  border: '#2B2F33',
+  accent: '#5AA7A1',
+  accentDark: '#357B79',
+  surface: '#E9E8E5',
+  surfaceAlt: '#E0E2E1',
+  danger: '#D75C52',
+  success: '#5AA7A1',
 } as const;
 
 export const Colors = {
   ...palette,
   light: { ...palette },
-  dark: { ...palette },
+  dark: {
+    ...palette,
+    background: '#171B1E',
+    card: '#1F2529',
+    surface: '#20272C',
+    surfaceAlt: '#151B20',
+    text: '#F2F4F4',
+    textMuted: '#9AA6AE',
+    border: '#3A4248',
+    white: '#F9FAF9',
+  },
 } as const;
 
 export const Spacing = {
-  screen: 12,
+  screen: 14,
+  card: 18,
+  section: 24,
+} as const;
+
+export const Border = {
+  width: 1.25,
+  radius: 18,
+  largeRadius: 24,
 } as const;

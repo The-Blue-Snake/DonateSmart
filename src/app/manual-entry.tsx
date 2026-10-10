@@ -1,5 +1,5 @@
 import { useAppTabNavigation } from '@/components/app-tab-navigation';
-import { Colors, Spacing } from '@/constants/theme';
+import { Border, Colors, Spacing } from '@/constants/theme';
 import type { TaxonomyCategory } from '@/constants/types';
 import taxonomyData from '@/data/taxonomy.json';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -135,7 +135,7 @@ content: { flex: 1, paddingHorizontal: Spacing.screen, paddingTop: 20, justifyCo
     maxHeight: '78%',
     minHeight: 294,
     overflow: 'hidden',
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     borderRadius: 16,
     backgroundColor: Colors.card,
@@ -160,7 +160,7 @@ content: { flex: 1, paddingHorizontal: Spacing.screen, paddingTop: 20, justifyCo
   inputShell: {
     minHeight: 52,
     justifyContent: 'center',
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     borderRadius: 12,
     backgroundColor: Colors.background,
@@ -176,7 +176,7 @@ content: { flex: 1, paddingHorizontal: Spacing.screen, paddingTop: 20, justifyCo
 
   resultsSection: {
     flex: 1,
-    borderTopWidth: 1,
+    borderTopWidth: Border.width,
     borderTopColor: Colors.border,
   },
 
@@ -190,7 +190,7 @@ content: { flex: 1, paddingHorizontal: Spacing.screen, paddingTop: 20, justifyCo
   },
 
   resultDivider: {
-    borderBottomWidth: 1,
+    borderBottomWidth: Border.width,
     borderBottomColor: Colors.border,
   },
 
@@ -234,7 +234,7 @@ content: { flex: 1, paddingHorizontal: Spacing.screen, paddingTop: 20, justifyCo
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 30,
-    borderTopWidth: 1,
+    borderTopWidth: Border.width,
     borderTopColor: Colors.border,
   },
 

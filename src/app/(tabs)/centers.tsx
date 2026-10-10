@@ -1,5 +1,5 @@
 import { useAppTabNavigation } from '@/components/app-tab-navigation';
-import { Colors, Spacing } from '@/constants/theme';
+import { Border, Colors, Spacing } from '@/constants/theme';
 import type { DonationCenter, PhotoSource } from '@/constants/types';
 import { getCenters } from '@/data/donationCenters';
 import { Ionicons } from '@expo/vector-icons';
@@ -61,13 +61,9 @@ const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } =
 const HORIZONTAL_PADDING = Spacing.screen;
 const CARD_WIDTH = SCREEN_WIDTH - HORIZONTAL_PADDING * 2;
 
-/*
- * The expanded card has a 1px border on both sides.
- * Its actual inner content width is therefore 2px narrower
- * than CARD_WIDTH. The horizontal photo pages need to use
- * that exact width so paging lines up perfectly.
- */
-const EXPANDED_CONTENT_WIDTH = CARD_WIDTH - 2;
+const CENTER_CARD_BORDER_WIDTH = 1.5;
+const EXPANDED_CONTENT_WIDTH =
+  CARD_WIDTH - CENTER_CARD_BORDER_WIDTH * 2;
 
 const COLLAPSED_CARD_HEIGHT = 125;
 const CARD_GAP = 6;
@@ -1361,17 +1357,19 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
               <View
                 style={styles.distancePill}
               >
-                <Ionicons
-                  name="navigate"
-                  size={11}
-                  color="#FFFFFF"
-                />
+                <View style={styles.distancePillFill}>
+                  <Ionicons
+                    name="navigate"
+                    size={11}
+                    color="#FFFFFF"
+                  />
 
-                <Text
-                  style={styles.distanceText}
-                >
-                  {distance.toFixed(1)} mi
-                </Text>
+                  <Text
+                    style={styles.distanceText}
+                  >
+                    {distance.toFixed(1)} mi
+                  </Text>
+                </View>
               </View>
             ) : null}
           </View>
@@ -1533,19 +1531,21 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
                 styles.expandedDistancePill
               }
             >
-              <Ionicons
-                name="navigate"
-                size={13}
-                color="#FFFFFF"
-              />
+              <View style={styles.expandedDistancePillFill}>
+                <Ionicons
+                  name="navigate"
+                  size={13}
+                  color="#FFFFFF"
+                />
 
-              <Text
-                style={
-                  styles.expandedDistanceText
-                }
-              >
-                {distance.toFixed(1)} mi away
-              </Text>
+                <Text
+                  style={
+                    styles.expandedDistanceText
+                  }
+                >
+                  {distance.toFixed(1)} mi away
+                </Text>
+              </View>
             </View>
           ) : null}
 
@@ -1619,7 +1619,7 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
                 <Ionicons
                   name="time-outline"
                   size={18}
-                  color={Colors.primary}
+                  color={Colors.white}
                 />
               </View>
 
@@ -1662,7 +1662,7 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
                 <Ionicons
                   name="call-outline"
                   size={18}
-                  color={Colors.primary}
+                  color={Colors.white}
                 />
               </View>
 
@@ -1855,6 +1855,17 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
                 focusOpacity,
               )
             )}
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.centerCardBorderOverlay,
+                {
+                  borderRadius: isExpanded
+                    ? animatedRadius
+                    : 18,
+                },
+              ]}
+            />
           </Animated.View>
         </Pressable>
       </Animated.View>
@@ -2021,6 +2032,12 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
 
+  centerCardBorderOverlay: {
+    ...StyleSheet.absoluteFill,
+    borderWidth: CENTER_CARD_BORDER_WIDTH,
+    borderColor: Colors.border,
+  },
+
   searchHeaderCard: {
     width: CARD_WIDTH,
     height: SEARCH_CARD_HEIGHT,
@@ -2029,7 +2046,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 15,
     paddingVertical: 14,
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     borderRadius: 18,
     backgroundColor: Colors.card,
@@ -2052,7 +2069,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingLeft: 14,
     paddingRight: 8,
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     borderRadius: 13,
     backgroundColor: Colors.background,
@@ -2088,7 +2105,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     borderRadius: 13,
     backgroundColor: Colors.background,
@@ -2143,7 +2160,7 @@ const styles = StyleSheet.create({
     padding: 3,
     borderRadius: 11,
     backgroundColor: Colors.background,
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
   },
 
@@ -2195,7 +2212,7 @@ const styles = StyleSheet.create({
     gap: 7,
     paddingHorizontal: 10,
     borderRadius: 11,
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     backgroundColor: Colors.background,
   },
@@ -2225,7 +2242,7 @@ const styles = StyleSheet.create({
     height: COLLAPSED_CARD_HEIGHT,
     overflow: 'hidden',
     justifyContent: 'flex-end',
-    borderWidth: 1,
+    borderWidth: CENTER_CARD_BORDER_WIDTH,
     borderColor: Colors.border,
     borderRadius: 18,
     backgroundColor: Colors.card,
@@ -2280,12 +2297,19 @@ const styles = StyleSheet.create({
   distancePill: {
     flexDirection: 'row',
     alignItems: 'center',
+    borderWidth: Border.width,
+    borderColor: Colors.border,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+
+  distancePillFill: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 5,
-    borderRadius: 14,
-    backgroundColor:
-      'rgba(0,0,0,0.45)',
+    backgroundColor: Colors.secondary,
   },
 
   distanceText: {
@@ -2342,7 +2366,7 @@ const styles = StyleSheet.create({
     width: '100%',
     overflow: 'hidden',
     borderRadius: 24,
-    borderWidth: 1,
+    borderWidth: CENTER_CARD_BORDER_WIDTH,
     borderColor: Colors.border,
     backgroundColor: Colors.card,
   },
@@ -2441,12 +2465,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: Border.width,
+    borderColor: Colors.border,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+
+  expandedDistancePillFill: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 5,
     paddingHorizontal: 10,
     paddingVertical: 7,
-    borderRadius: 16,
-    backgroundColor:
-      'rgba(0,0,0,0.47)',
+    backgroundColor: Colors.secondary,
   },
 
   expandedDistanceText: {
@@ -2528,9 +2561,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.secondary,
   },
 
   metaCopy: {

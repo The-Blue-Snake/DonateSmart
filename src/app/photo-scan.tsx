@@ -1,5 +1,5 @@
 import { useAppTabNavigation } from '@/components/app-tab-navigation';
-import { Colors, Spacing } from '@/constants/theme';
+import { Border, Colors, Spacing } from '@/constants/theme';
 import type { TaxonomyCategory } from '@/constants/types';
 import { classifyImageAt } from '@/lib/vision/itemClassifier';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   permissionCard: {
     width: '100%',
     backgroundColor: Colors.card,
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     borderRadius: 14,
     padding: 22,
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 10,
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'center',
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
 
   permissionContent: {
     paddingBottom: 22,
-    borderBottomWidth: 1,
+    borderBottomWidth: Border.width,
     borderBottomColor: Colors.border,
   },
 
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
     minHeight: 50,
     marginTop: 18,
     borderRadius: 10,
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     backgroundColor: Colors.background,
     alignItems: 'center',
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.card,
     borderRadius: 14,
     padding: 22,
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     marginBottom: 12,
   },
@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 20,
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     backgroundColor: Colors.background,
   },
@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
   secondaryActionButton: {
     minHeight: 48,
     borderRadius: 10,
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     backgroundColor: Colors.card,
     alignItems: 'center',

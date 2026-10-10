@@ -1,5 +1,5 @@
 import { useAppTabNavigation } from '@/components/app-tab-navigation';
-import { Colors, Spacing } from '@/constants/theme';
+import { Border, Colors, Spacing } from '@/constants/theme';
 import type { DonationCenter } from '@/constants/types';
 import { getCenters } from '@/data/donationCenters';
 import { Ionicons } from '@expo/vector-icons';
@@ -267,6 +267,9 @@ export default function MapScreen({
           ref={mapRef}
           style={styles.map}
           initialRegion={mapInitialRegion}
+          mapType="standard"
+          tintColor={Colors.secondary}
+          userInterfaceStyle="light"
           showsUserLocation={false}
           removeClippedSubviews={false}
         >
@@ -274,15 +277,17 @@ export default function MapScreen({
             <Marker
               key={center.id}
               coordinate={coordinate}
-              anchor={{ x: 0.5, y: 1 }}
+              anchor={{ x: 0.5, y: 0.5 }}
               onPress={() => focusOnCenter(center.id)}
             >
               <View style={styles.pinShadowWrap}>
-                <Ionicons
-                  name="location-outline"
-                  size={22}
-                  color={Colors.white}
-                />
+                <View style={styles.centerPin}>
+                  <Ionicons
+                    name="heart"
+                    size={16}
+                    color={Colors.white}
+                  />
+                </View>
               </View>
             </Marker>
           ))}
@@ -291,14 +296,16 @@ export default function MapScreen({
             <Marker
               key="user-location"
               coordinate={userLocation}
-              anchor={{ x: 0.5, y: 1 }}
+              anchor={{ x: 0.5, y: 0.5 }}
             >
               <View style={styles.pinShadowWrap}>
-                <Ionicons
-                  name="location-outline"
-                  size={22}
-                  color={Colors.primary}
-                />
+                <View style={styles.userPin}>
+                  <Ionicons
+                    name="navigate"
+                    size={15}
+                    color={Colors.white}
+                  />
+                </View>
               </View>
             </Marker>
           ) : null}
@@ -315,8 +322,8 @@ export default function MapScreen({
           >
             <Ionicons
               name="close"
-              size={18}
-              color={Colors.text}
+              size={20}
+              color="#FFFFFF"
             />
           </Pressable>
         ) : null}
@@ -363,11 +370,7 @@ export default function MapScreen({
                         : 'bookmark-outline'
                     }
                     size={18}
-                    color={
-                      savedCenterIds.has(selectedCenter.id)
-                        ? '#FFFFFF'
-                        : Colors.text
-                    }
+                    color="#FFFFFF"
                   />
                 </Pressable>
               </View>
@@ -514,9 +517,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     marginHorizontal: Spacing.screen,
     overflow: 'hidden',
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
-    borderRadius: 14,
+    borderRadius: 16,
     backgroundColor: Colors.card,
   },
 
@@ -526,34 +529,24 @@ const styles = StyleSheet.create({
 
   closeButton: {
     position: 'absolute',
-    top: 16,
-    right: 16,
+    top: 14,
+    right: 14,
     width: 36,
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.card,
-
-    shadowColor: '#000000',
-    shadowOpacity: 0.12,
-    shadowRadius: 7,
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-
-    elevation: 4,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.42)',
   },
 
   closeButtonPressed: {
-    opacity: 0.75,
-    transform: [{ scale: 0.95 }],
+    backgroundColor: 'rgba(0,0,0,0.62)',
+    transform: [{ scale: 0.94 }],
   },
 
   pinShadowWrap: {
+    width: 28,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000000',
@@ -566,6 +559,28 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
 
+  centerPin: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: Border.width / 1.5,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+  },
+
+  userPin: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: Border.width / 1.5,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    backgroundColor: Colors.secondary,
+  },
+
   infoPanel: {
     position: 'absolute',
     right: 10,
@@ -576,7 +591,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 16,
 
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     borderRadius: 16,
     backgroundColor: Colors.card,
@@ -620,7 +635,7 @@ const styles = StyleSheet.create({
     gap: 7,
     paddingHorizontal: 10,
     borderRadius: 11,
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     backgroundColor: Colors.background,
   },
@@ -674,15 +689,15 @@ const styles = StyleSheet.create({
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     borderRadius: 10,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.secondary,
   },
 
   savedCenterButtonActive: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primary,
+    borderColor: Colors.border,
+    backgroundColor: Colors.secondary,
   },
 
   savedCenterButtonPressed: {
@@ -731,7 +746,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 7,
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     borderRadius: 11,
     backgroundColor: Colors.card,

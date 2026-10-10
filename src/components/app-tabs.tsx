@@ -1,4 +1,4 @@
-import { Colors } from '@/constants/theme';
+import { Border, Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     backgroundColor: Colors.card,
-    borderTopWidth: 1,
+    borderTopWidth: Border.width,
     borderTopColor: Colors.border,
     paddingTop: 10,
   },

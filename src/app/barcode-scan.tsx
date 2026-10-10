@@ -1,5 +1,5 @@
 import { useAppTabNavigation } from '@/components/app-tab-navigation';
-import { Colors, Spacing } from '@/constants/theme';
+import { Border, Colors, Spacing } from '@/constants/theme';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
   permissionCard: {
     width: '100%',
     backgroundColor: Colors.card,
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     borderRadius: 14,
     padding: 22,
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 10,
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'center',
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
 
   permissionContent: {
     paddingBottom: 22,
-    borderBottomWidth: 1,
+    borderBottomWidth: Border.width,
     borderBottomColor: Colors.border,
   },
 
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     minHeight: 50,
     borderRadius: 10,
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     backgroundColor: Colors.background,
     alignItems: 'center',
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.card,
     borderRadius: 14,
     padding: 22,
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     marginBottom: 12,
   },
@@ -530,7 +530,7 @@ const styles = StyleSheet.create({
   secondaryActionButton: {
     minHeight: 48,
     borderRadius: 10,
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     backgroundColor: Colors.card,
     alignItems: 'center',

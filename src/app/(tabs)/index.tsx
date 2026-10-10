@@ -1,8 +1,14 @@
 
-import { Colors, Spacing } from '@/constants/theme';
+import { Border, Colors, Spacing } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const OPTIONS = [
@@ -26,46 +32,81 @@ const OPTIONS = [
   },
 ];
 
+const BRAND_OUTLINE_OFFSETS = [
+  [-0.7, 0],
+  [0.7, 0],
+  [0, -0.7],
+  [0, 0.7],
+  [-0.5, -0.5],
+  [0.5, -0.5],
+  [-0.5, 0.5],
+  [0.5, 0.5],
+] as const;
+
 export default function Home() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.content}>
-        <View style={styles.card}>
-          {OPTIONS.map(({ title, description, icon, route }, index) => (
-            <Pressable
-              key={title}
-              style={({ pressed }) => [
-                styles.row,
-                index !== OPTIONS.length - 1 && styles.rowDivider,
-                pressed && styles.rowPressed,
+        <View style={styles.brandTitleContainer}>
+          {BRAND_OUTLINE_OFFSETS.map(([x, y], index) => (
+            <Text
+              key={index}
+              accessible={false}
+              style={[
+                styles.brandTitle,
+                styles.brandTitleOutline,
+                { transform: [{ rotate: '-2deg' }, { translateX: x }, { translateY: y }] },
               ]}
-              onPress={() => router.push(route)}
             >
-              <View style={styles.iconChip}>
-                <Ionicons
-                  name={icon}
-                  size={21}
-                  color={Colors.primary}
-                />
-              </View>
-
-              <View style={styles.rowText}>
-                <Text style={styles.rowTitle}>{title}</Text>
-
-                <Text style={styles.rowDescription}>
-                  {description}
-                </Text>
-              </View>
-
-              <View style={styles.chevron}>
-                <Ionicons
-                  name="chevron-forward"
-                  size={18}
-                  color={Colors.textMuted}
-                />
-              </View>
-            </Pressable>
+              DonateSmart
+            </Text>
           ))}
+          <Text
+            accessibilityRole="header"
+            style={[styles.brandTitle, styles.brandTitleFace]}
+          >
+            DonateSmart
+          </Text>
+        </View>
+
+        <View style={styles.actions}>
+          <View style={styles.card}>
+            {OPTIONS.map(({ title, description, icon, route }, index) => (
+              <Pressable
+                key={title}
+                style={({ pressed }) => [
+                  styles.row,
+                  index !== OPTIONS.length - 1 && styles.rowDivider,
+                  pressed && styles.rowPressed,
+                ]}
+                onPress={() => router.push(route)}
+              >
+                <View style={styles.iconChip}>
+                  <Ionicons
+                    name={icon}
+                    size={21}
+                    color={Colors.white}
+                  />
+                </View>
+
+                <View style={styles.rowText}>
+                  <Text style={styles.rowTitle}>{title}</Text>
+
+                  <Text style={styles.rowDescription}>
+                    {description}
+                  </Text>
+                </View>
+
+                <View style={styles.chevron}>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={Colors.textMuted}
+                  />
+                </View>
+              </Pressable>
+            ))}
+          </View>
         </View>
       </View>
     </SafeAreaView>
@@ -81,13 +122,49 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: Spacing.screen,
+  },
+
+  brandTitle: {
+    fontFamily: Platform.select({
+      ios: 'MarkerFelt-Wide',
+      android: 'casual',
+      default: 'cursive',
+    }),
+    fontSize: 58,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
+
+  brandTitleContainer: {
+    position: 'relative',
+    marginTop: 56,
+    alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  brandTitleOutline: {
+    position: 'absolute',
+    alignSelf: 'stretch',
+    color: Colors.border,
+  },
+
+  brandTitleFace: {
+    color: Colors.primary,
+    transform: [{ rotate: '-2deg' }],
+  },
+
+  actions: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingBottom: 24,
   },
 
   card: {
     width: '100%',
     overflow: 'hidden',
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     borderRadius: 16,
     backgroundColor: Colors.card,
@@ -113,7 +190,7 @@ const styles = StyleSheet.create({
   },
 
   rowDivider: {
-    borderBottomWidth: 1,
+    borderBottomWidth: Border.width,
     borderBottomColor: Colors.border,
   },
 
@@ -127,10 +204,10 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    borderWidth: Border.width,
     borderColor: Colors.border,
     borderRadius: 12,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.secondary,
   },
 
   rowText: {
