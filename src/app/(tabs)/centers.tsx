@@ -1886,7 +1886,7 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           getItemLayout={getItemLayout}
-          ListHeaderComponent={renderSearchHeader}
+          ListHeaderComponent={renderSearchHeader()}
           initialNumToRender={4}
           maxToRenderPerBatch={4}
           updateCellsBatchingPeriod={50}

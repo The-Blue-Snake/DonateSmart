@@ -3,8 +3,8 @@ import { Colors, Spacing } from '@/constants/theme';
 import type { TaxonomyCategory } from '@/constants/types';
 import { classifyImageAt } from '@/lib/vision/itemClassifier';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function PhotoScan() {
   const { navigateToTab } = useAppTabNavigation();
   const [permission, requestPermission] = useCameraPermissions();
+  const [isCapturing, setIsCapturing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
   const [detectedCategory, setDetectedCategory] =
@@ -25,7 +26,22 @@ export default function PhotoScan() {
   const [needsReview, setNeedsReview] = useState(false);
 
   const cameraRef = useRef<CameraView>(null);
+  const classificationAbortController = useRef<AbortController | null>(null);
   const detectedCategoryName = detectedCategory?.name ?? '';
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        if (classificationAbortController.current) {
+          console.log(
+            'Photo scan closed; cancelling image classification and Gemini requests.',
+          );
+        }
+        classificationAbortController.current?.abort();
+        classificationAbortController.current = null;
+      };
+    }, []),
+  );
 
   const clearClassificationResult = () => {
     setDetectedCategory(null);
@@ -77,24 +93,39 @@ export default function PhotoScan() {
   }
 
   const handleCapture = async () => {
-    if (!cameraRef.current || isAnalyzing) {
+    if (!cameraRef.current || isCapturing || isAnalyzing) {
       return;
     }
 
+    const abortController = new AbortController();
+    classificationAbortController.current = abortController;
+
     try {
-      setIsAnalyzing(true);
+      setIsCapturing(true);
 
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
       });
+
+      if (abortController.signal.aborted) {
+        return;
+      }
 
       if (!photo?.uri) {
         throw new Error('The camera did not return a photo.');
       }
 
       setCapturedUri(photo.uri);
+      setIsAnalyzing(true);
 
-      const result = await classifyImageAt(photo.uri);
+      const result = await classifyImageAt(
+        photo.uri,
+        abortController.signal,
+      );
+
+      if (abortController.signal.aborted) {
+        return;
+      }
 
       if (result) {
         setDetectedCategory(result.category);
@@ -103,10 +134,16 @@ export default function PhotoScan() {
         clearClassificationResult();
       }
     } catch (error) {
-      console.error('Image recognition failed:', error);
-      clearClassificationResult();
+      if (!abortController.signal.aborted) {
+        console.error('Image recognition failed:', error);
+        clearClassificationResult();
+      }
     } finally {
-      setIsAnalyzing(false);
+      if (classificationAbortController.current === abortController) {
+        classificationAbortController.current = null;
+        setIsCapturing(false);
+        setIsAnalyzing(false);
+      }
     }
   };
 
@@ -137,7 +174,7 @@ export default function PhotoScan() {
   };
 
   const hasDetectedCategory = Boolean(detectedCategory);
-  const showCamera = !capturedUri && !isAnalyzing;
+  const showCamera = !capturedUri;
   const showResult = capturedUri && !isAnalyzing;
 
   const getPrimaryButtonStyle = (pressed: boolean) => [
@@ -262,7 +299,7 @@ export default function PhotoScan() {
         </SafeAreaView>
       ) : null}
 
-      {!capturedUri && !isAnalyzing ? (
+      {!capturedUri && !isCapturing && !isAnalyzing ? (
         <View style={styles.captureBar}>
           <Pressable
             style={({ pressed }) => getCaptureButtonStyle(pressed)}

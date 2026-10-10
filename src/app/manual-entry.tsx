@@ -36,12 +36,12 @@ export default function ManualEntry() {
   }, [query]);
 
   const selectCategory = (category: TaxonomyCategory) => {
-    router.dismiss();
     navigateToTab('centers', {
       category: category.fullPath,
       topLevel: category.topLevel,
       name: category.name,
     });
+    requestAnimationFrame(() => router.dismiss());
   };
 
   return (
@@ -105,7 +105,8 @@ export default function ManualEntry() {
                   </View>
                 }
                 keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
+                showsVerticalScrollIndicator
+                persistentScrollbar
               />
             </View>
           ) : (

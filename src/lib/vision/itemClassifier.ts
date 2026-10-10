@@ -59,9 +59,12 @@ function getMimeType(uri: string): string {
   }
 }
 
-async function imageUriToDataUrl(uri: string): Promise<string> {
+async function imageUriToDataUrl(
+  uri: string,
+  signal?: AbortSignal,
+): Promise<string> {
   console.log(`Fetching image from ${uri}…`);
-  const response = await fetch(uri);
+  const response = await fetch(uri, { signal });
 
   if (!response.ok) {
     throw new Error(`Unable to read captured image (${response.status}).`);
@@ -94,16 +97,30 @@ async function imageUriToDataUrl(uri: string): Promise<string> {
 async function fetchWithTimeout(
   url: string,
   options: RequestInit,
-): Promise<Response> {
+  signal?: AbortSignal,
+): Promise<{ response: Response; body: string }> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const abortRequest = () => controller.abort(signal?.reason);
 
   try {
-    return await fetch(url, {
+    if (signal?.aborted) {
+      abortRequest();
+    } else {
+      signal?.addEventListener('abort', abortRequest, { once: true });
+    }
+
+    const response = await fetch(url, {
       ...options,
       signal: controller.signal,
     });
+    const body = await response.text();
+    return { response, body };
   } catch (error) {
+    if (signal?.aborted) {
+      throw error;
+    }
+
     if (controller.signal.aborted) {
       throw new Error('Gemini took too long to respond.');
     }
@@ -111,6 +128,7 @@ async function fetchWithTimeout(
     throw error;
   } finally {
     clearTimeout(timeout);
+    signal?.removeEventListener('abort', abortRequest);
   }
 }
 
@@ -200,7 +218,8 @@ async function requestGemini(
   prompt: string,
   maxOutputTokens: number,
   outputSchema: Record<string, unknown>,
-): Promise<Response> {
+  signal?: AbortSignal,
+): Promise<{ response: Response; body: string }> {
   const apiKey = getApiKey();
 
   if (!apiKey) {
@@ -245,7 +264,7 @@ async function requestGemini(
         schema: outputSchema,
       },
     }),
-  });
+  }, signal);
 }
 
 function getGeminiContent(data: GeminiResponse): string | null {
@@ -264,6 +283,7 @@ function getGeminiContent(data: GeminiResponse): string | null {
 async function callGemini(
   imageDataUrl: string,
   candidates: TaxonomyCategory[],
+  signal?: AbortSignal,
 ): Promise<SelectionResult> {
   const candidateText = candidates.map(formatCandidate).join('\n');
 
@@ -271,7 +291,7 @@ async function callGemini(
     `Sending ${candidates.length} candidate(s) to Gemini:\n${candidateText}`,
   );
 
-  const response = await requestGemini(
+  const { response, body } = await requestGemini(
     imageDataUrl,
     `You classify a visible donation item into a Google Product Taxonomy tree.
 Choose exactly one category from the candidate list below that clearly and confidently
@@ -302,16 +322,11 @@ ${candidateText}`,
       required: ['reasoning', 'categoryId'],
       additionalProperties: false,
     },
+    signal,
   );
 
   if (!response.ok) {
-    let details = '';
-
-    try {
-      details = await response.text();
-    } catch {
-      // Ignore failure to read the error body.
-    }
+    const details = body;
 
     console.log(`Gemini request failed with status ${response.status}.`);
 
@@ -330,7 +345,7 @@ ${candidateText}`,
     );
   }
 
-  const data = (await response.json()) as GeminiResponse;
+  const data = JSON.parse(body) as GeminiResponse;
 
   if (data.error) {
     const message =
@@ -367,7 +382,10 @@ ${candidateText}`,
   return selection;
 }
 
-async function walkTree(imageDataUrl: string): Promise<WalkResult | null> {
+async function walkTree(
+  imageDataUrl: string,
+  signal?: AbortSignal,
+): Promise<WalkResult | null> {
   let selectedCategory: TaxonomyCategory | null = null;
   let step = 1;
 
@@ -392,7 +410,15 @@ async function walkTree(imageDataUrl: string): Promise<WalkResult | null> {
       `--- Step ${step}: selecting among ${candidates.length} option(s) at level ${candidates[0].level} ---`,
     );
 
-    const { categoryId: selectedId } = await callGemini(imageDataUrl, candidates);
+    if (signal?.aborted) {
+      throw new Error('Image classification was cancelled.');
+    }
+
+    const { categoryId: selectedId } = await callGemini(
+      imageDataUrl,
+      candidates,
+      signal,
+    );
 
     if (selectedId === null) {
       if (!selectedCategory) {
@@ -422,12 +448,17 @@ async function walkTree(imageDataUrl: string): Promise<WalkResult | null> {
 
 export async function classifyImageAt(
   imageUri: string,
+  signal?: AbortSignal,
 ): Promise<ClassificationResult | null> {
   console.log('=== Starting classification ===');
   console.log('Preparing image for Gemini…');
 
-  const imageDataUrl = await imageUriToDataUrl(imageUri);
-  const walkResult = await walkTree(imageDataUrl);
+  const imageDataUrl = await imageUriToDataUrl(imageUri, signal);
+  if (signal?.aborted) {
+    throw new Error('Image classification was cancelled.');
+  }
+
+  const walkResult = await walkTree(imageDataUrl, signal);
 
   if (!walkResult) {
     console.log('=== Classification complete: no confident category found ===');

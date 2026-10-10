@@ -1,5 +1,5 @@
-import { Colors, Spacing } from '@/constants/theme';
 import { useAppTabNavigation } from '@/components/app-tab-navigation';
+import { Colors, Spacing } from '@/constants/theme';
 import type { DonationCenter } from '@/constants/types';
 import { getCenters } from '@/data/donationCenters';
 import { Ionicons } from '@expo/vector-icons';
@@ -31,8 +31,8 @@ type MapScreenProps = {
 const MINNEAPOLIS: Region = {
   latitude: 44.9778,
   longitude: -93.265,
-  latitudeDelta: 0.24,
-  longitudeDelta: 0.24,
+  latitudeDelta: 0.6,
+  longitudeDelta: 0.6,
 };
 
 export default function MapScreen({
