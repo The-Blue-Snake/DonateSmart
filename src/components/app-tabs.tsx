@@ -29,7 +29,12 @@ export default function AppTabs() {
   const pagerRef = useRef<PagerView>(null);
   const userSwipeRef = useRef(false);
   const [activeIndex, setActiveIndex] = useState(0);
-  const { currentTab, tabParams, navigateToTab } = useAppTabNavigation();
+  const {
+    currentTab,
+    tabParams,
+    animateTabChange,
+    navigateToTab,
+  } = useAppTabNavigation();
 
   const goToPage = useCallback((index: number) => {
     pagerRef.current?.setPage(index);
@@ -39,9 +44,13 @@ export default function AppTabs() {
     const nextIndex = TABS.findIndex((tab) => tab.key === currentTab);
 
     if (nextIndex >= 0 && nextIndex !== activeIndex) {
-      pagerRef.current?.setPage(nextIndex);
+      if (animateTabChange) {
+        pagerRef.current?.setPage(nextIndex);
+      } else {
+        pagerRef.current?.setPageWithoutAnimation(nextIndex);
+      }
     }
-  }, [activeIndex, currentTab]);
+  }, [activeIndex, animateTabChange, currentTab]);
 
   return (
     <View style={styles.container}>

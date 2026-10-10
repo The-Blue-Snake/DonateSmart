@@ -36,12 +36,12 @@ export default function ManualEntry() {
   }, [query]);
 
   const selectCategory = (category: TaxonomyCategory) => {
-    router.dismissAll();
     navigateToTab('centers', {
       category: category.fullPath,
       topLevel: category.topLevel,
       name: category.name,
-    });
+    }, { animated: false });
+    router.dismiss();
   };
 
   return (

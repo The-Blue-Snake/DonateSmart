@@ -22,11 +22,20 @@ export type AppTabParams = {
 
 type TabParams = Record<AppTabKey, AppTabParams>;
 
+type TabNavigationOptions = {
+  animated?: boolean;
+};
+
 type AppTabNavigationContextValue = {
   currentTab: AppTabKey;
   currentTabParams: AppTabParams;
   tabParams: TabParams;
-  navigateToTab: (tab: AppTabKey, params?: AppTabParams) => void;
+  animateTabChange: boolean;
+  navigateToTab: (
+    tab: AppTabKey,
+    params?: AppTabParams,
+    options?: TabNavigationOptions,
+  ) => void;
   resetTabParams: (tab: AppTabKey) => void;
   savedCenterIds: Set<string>;
   toggleSavedCenter: (id: string) => void;
@@ -41,6 +50,7 @@ export function AppTabNavigationProvider({
   children: ReactNode;
 }) {
   const [currentTab, setCurrentTab] = useState<AppTabKey>('index');
+  const [animateTabChange, setAnimateTabChange] = useState(true);
 
   // Keep the state of every tab independently.
   const [tabParams, setTabParams] = useState<TabParams>({
@@ -52,8 +62,13 @@ export function AppTabNavigationProvider({
     useState<Set<string>>(new Set());
 
   const navigateToTab = useCallback(
-    (tab: AppTabKey, params?: AppTabParams) => {
+    (
+      tab: AppTabKey,
+      params?: AppTabParams,
+      options?: TabNavigationOptions,
+    ) => {
       setCurrentTab(tab);
+      setAnimateTabChange(options?.animated ?? true);
 
       setTabParams((previous) => {
         if (params === undefined) {
@@ -114,6 +129,7 @@ export function AppTabNavigationProvider({
       currentTab,
       currentTabParams,
       tabParams,
+      animateTabChange,
       navigateToTab,
       resetTabParams,
       savedCenterIds,
@@ -123,6 +139,7 @@ export function AppTabNavigationProvider({
       currentTab,
       currentTabParams,
       tabParams,
+      animateTabChange,
       navigateToTab,
       resetTabParams,
       savedCenterIds,

@@ -186,12 +186,12 @@ export default function BarcodeScan() {
       return;
     }
 
-    router.dismissAll();
     navigateToTab('centers', {
       category: categoryParts.fullPath,
       topLevel: categoryParts.topLevel,
       name: categoryParts.deepestBranch,
-    });
+    }, { animated: false });
+    router.dismiss();
   };
 
   const categoryParts = getCategoryParts(product?.category);

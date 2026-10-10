@@ -157,12 +157,12 @@ export default function PhotoScan() {
       return;
     }
 
-    router.dismissAll();
     navigateToTab('centers', {
       category: detectedCategory.fullPath,
       topLevel: detectedCategory.topLevel,
       name: detectedCategory.name,
-    });
+    }, { animated: false });
+    router.dismiss();
   };
 
   const editCategory = () => {
