@@ -25,6 +25,10 @@ type GeminiResponse = {
   };
 };
 
+export type ClassificationProgress = {
+  currentCategory: string;
+};
+
 export type ClassificationResult = {
   category: TaxonomyCategory;
   needsReview: boolean;
@@ -385,9 +389,9 @@ ${candidateText}`,
 async function walkTree(
   imageDataUrl: string,
   signal?: AbortSignal,
+  onProgress?: (progress: ClassificationProgress) => void,
 ): Promise<WalkResult | null> {
   let selectedCategory: TaxonomyCategory | null = null;
-  let step = 1;
 
   while (true) {
     const candidates: TaxonomyCategory[] = selectedCategory
@@ -407,8 +411,11 @@ async function walkTree(
     }
 
     console.log(
-      `--- Step ${step}: selecting among ${candidates.length} option(s) at level ${candidates[0].level} ---`,
+      `--- Selecting among ${candidates.length} option(s) at level ${candidates[0].level} under ${selectedCategory?.fullPath ?? 'top-level categories'} ---`,
     );
+    onProgress?.({
+      currentCategory: selectedCategory?.name ?? 'Top categories',
+    });
 
     if (signal?.aborted) {
       throw new Error('Image classification was cancelled.');
@@ -442,13 +449,13 @@ async function walkTree(
 
     console.log(`Descending into: ${nextCategory.fullPath}`);
     selectedCategory = nextCategory;
-    step += 1;
   }
 }
 
 export async function classifyImageAt(
   imageUri: string,
   signal?: AbortSignal,
+  onProgress?: (progress: ClassificationProgress) => void,
 ): Promise<ClassificationResult | null> {
   console.log('=== Starting classification ===');
   console.log('Preparing image for Gemini…');
@@ -458,7 +465,7 @@ export async function classifyImageAt(
     throw new Error('Image classification was cancelled.');
   }
 
-  const walkResult = await walkTree(imageDataUrl, signal);
+  const walkResult = await walkTree(imageDataUrl, signal, onProgress);
 
   if (!walkResult) {
     console.log('=== Classification complete: no confident category found ===');

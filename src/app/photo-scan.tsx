@@ -24,6 +24,9 @@ export default function PhotoScan() {
   const [detectedCategory, setDetectedCategory] =
     useState<TaxonomyCategory | null>(null);
   const [needsReview, setNeedsReview] = useState(false);
+  const [classificationProgress, setClassificationProgress] = useState<{
+    currentCategory: string;
+  } | null>(null);
 
   const cameraRef = useRef<CameraView>(null);
   const classificationAbortController = useRef<AbortController | null>(null);
@@ -46,6 +49,7 @@ export default function PhotoScan() {
   const clearClassificationResult = () => {
     setDetectedCategory(null);
     setNeedsReview(false);
+    setClassificationProgress(null);
   };
 
   const resetScanFlow = () => {
@@ -121,6 +125,7 @@ export default function PhotoScan() {
       const result = await classifyImageAt(
         photo.uri,
         abortController.signal,
+        (progress) => setClassificationProgress(progress),
       );
 
       if (abortController.signal.aborted) {
@@ -217,6 +222,14 @@ export default function PhotoScan() {
           />
 
           <Text style={styles.analyzingText}>Identifying item…</Text>
+
+          {classificationProgress ? (
+            <View style={styles.progressBadge}>
+              <Text style={styles.progressBadgeText}>
+                {classificationProgress.currentCategory}
+              </Text>
+            </View>
+          ) : null}
         </View>
       ) : null}
 
@@ -447,6 +460,23 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
+  },
+
+  progressBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+
+  progressBadgeText: {
+    color: Colors.white,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
 
   resultWrap: {
