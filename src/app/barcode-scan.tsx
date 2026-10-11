@@ -222,10 +222,6 @@ export default function BarcodeScan() {
         <SafeAreaView style={styles.resultWrap}>
           <View style={styles.resultContent}>
             <View style={styles.card}>
-              <Text style={styles.resultLabel}>CONFIRM CATEGORY</Text>
-
-              <View style={styles.cardDivider} />
-
               {loading ? (
                 <View style={styles.loadingState}>
                   <ActivityIndicator
@@ -455,20 +451,6 @@ const styles = StyleSheet.create({
     borderWidth: Border.width,
     borderColor: Colors.border,
     marginBottom: 12,
-  },
-
-  resultLabel: {
-    color: Colors.textMuted,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1,
-    textAlign: 'center',
-  },
-
-  cardDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
-    marginVertical: 18,
   },
 
   loadingState: {

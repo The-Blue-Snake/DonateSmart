@@ -30,11 +30,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-type CenterWithDistance = {
-  center: DonationCenter;
-  distance: number | null;
-};
-
 type RouteParams = {
   topLevel?: string;
   category?: string;
@@ -488,8 +483,8 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
   const [expandedIndex, setExpandedIndex] =
     useState<number | null>(null);
 
-  const [expandedCenter, setExpandedCenter] =
-    useState<CenterWithDistance | null>(null);
+  const [expandedCenterId, setExpandedCenterId] =
+    useState<string | null>(null);
 
   const [expansionProgress] =
     useState(() => new Animated.Value(0));
@@ -719,25 +714,26 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
       return;
     }
 
-    const item =
-      carouselItems[centerIndex];
-
     expansionProgress.stopAnimation();
     expansionProgress.setValue(1);
 
     const frame = requestAnimationFrame(() => {
       setActiveIndex(centerIndex);
-      setExpandedCenter({
-        center: item.center,
-        distance: item.distance,
-      });
       setExpandedIndex(centerIndex);
+      setExpandedCenterId(centerId);
 
-      listRef.current?.scrollToIndex({
-        index: centerIndex,
-        animated: false,
-        viewPosition: 0.5,
-      });
+      if (centerIndex === 0) {
+        listRef.current?.scrollToOffset({
+          offset: 0,
+          animated: false,
+        });
+      } else {
+        listRef.current?.scrollToIndex({
+          index: centerIndex,
+          animated: false,
+          viewPosition: 0.5,
+        });
+      }
     });
 
     return () => cancelAnimationFrame(frame);
@@ -753,7 +749,7 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
 
       if (!centerId) {
         setExpandedIndex(null);
-        setExpandedCenter(null);
+        setExpandedCenterId(null);
         expansionProgress.setValue(0);
       }
 
@@ -773,6 +769,36 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
     sortMode,
     centerId,
     expansionProgress,
+  ]);
+
+  useEffect(() => {
+    if (
+      !showSavedOnly ||
+      !expandedCenterId ||
+      savedIds.has(expandedCenterId)
+    ) {
+      return;
+    }
+
+    expansionProgress.stopAnimation();
+    expansionProgress.setValue(0);
+
+    const frame = requestAnimationFrame(() => {
+      setExpandedIndex(null);
+      setExpandedCenterId(null);
+      setActiveIndex(0);
+      listRef.current?.scrollToOffset({
+        offset: 0,
+        animated: false,
+      });
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [
+    expandedCenterId,
+    expansionProgress,
+    savedIds,
+    showSavedOnly,
   ]);
 
   const resolvePhotoSource = (
@@ -841,6 +867,14 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
     index: number,
     animated = true,
   ) => {
+    if (index === 0) {
+      listRef.current?.scrollToOffset({
+        offset: 0,
+        animated,
+      });
+      return;
+    }
+
     listRef.current?.scrollToIndex({
       index,
       animated,
@@ -855,6 +889,13 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
     if (index !== activeIndex) {
       centerItemInViewport(index);
       return;
+    }
+
+    if (index === 0) {
+      listRef.current?.scrollToOffset({
+        offset: 0,
+        animated: false,
+      });
     }
 
     const photo =
@@ -872,12 +913,8 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
     expansionProgress.stopAnimation();
     expansionProgress.setValue(0);
 
-    setExpandedCenter({
-      center: item.center,
-      distance: item.distance,
-    });
-
     setExpandedIndex(index);
+    setExpandedCenterId(item.id);
 
     requestAnimationFrame(() => {
       Animated.timing(
@@ -904,19 +941,24 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
     ).start(({ finished }) => {
       if (finished) {
         setExpandedIndex(null);
-        setExpandedCenter(null);
+        setExpandedCenterId(null);
       }
     });
   };
 
   const toggleSavedCenterFromExpanded = (id: string) => {
-    const isSaved = savedIds.has(id);
-
-    if (isSaved && expandedCenter?.center.id === id) {
+    if (showSavedOnly && savedIds.has(id)) {
       expansionProgress.stopAnimation();
       expansionProgress.setValue(0);
       setExpandedIndex(null);
-      setExpandedCenter(null);
+      setExpandedCenterId(null);
+      setActiveIndex(0);
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToOffset({
+          offset: 0,
+          animated: false,
+        });
+      });
     }
 
     toggleSavedCenter(id);
@@ -1735,7 +1777,7 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
     } = getCardMotion(index);
 
     const isExpanded =
-      expandedIndex === index;
+      expandedCenterId === item.id;
 
     const opacity =
       expandedIndex === null

@@ -128,7 +128,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
 
-content: { flex: 1, paddingHorizontal: Spacing.screen, paddingTop: 20, justifyContent: 'flex-start', },
+  content: {
+    flex: 1,
+    paddingHorizontal: Spacing.screen,
+    paddingTop: 20,
+    justifyContent: 'flex-start',
+  },
 
   card: {
     width: '100%',

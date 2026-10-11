@@ -297,6 +297,7 @@ export default function MapScreen({
               key="user-location"
               coordinate={userLocation}
               anchor={{ x: 0.5, y: 0.5 }}
+              zIndex={1000}
             >
               <View style={styles.pinShadowWrap}>
                 <View style={styles.userPin}>

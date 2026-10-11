@@ -7,6 +7,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Image,
   Pressable,
   StyleSheet,
@@ -29,6 +30,9 @@ export default function PhotoScan() {
   } | null>(null);
 
   const cameraRef = useRef<CameraView>(null);
+  const [flashOpacity] = useState(() => new Animated.Value(0));
+  // Keeps the flash opaque while the captured image is being prepared.
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const classificationAbortController = useRef<AbortController | null>(null);
   const detectedCategoryName = detectedCategory?.name ?? '';
 
@@ -53,6 +57,9 @@ export default function PhotoScan() {
   };
 
   const resetScanFlow = () => {
+    flashOpacity.stopAnimation();
+    flashOpacity.setValue(0);
+    setIsTransitioning(false);
     setCapturedUri(null);
     clearClassificationResult();
   };
@@ -107,6 +114,17 @@ export default function PhotoScan() {
     try {
       setIsCapturing(true);
 
+      // Cover the live preview immediately. Keep it covered until the still image
+      // has loaded, then reveal that image in one frame (no crossfade). This
+      // prevents the live feed from reappearing while takePictureAsync resolves.
+      flashOpacity.stopAnimation();
+      flashOpacity.setValue(0);
+      Animated.timing(flashOpacity, {
+        toValue: 1,
+        duration: 55,
+        useNativeDriver: true,
+      }).start();
+
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
       });
@@ -119,6 +137,7 @@ export default function PhotoScan() {
         throw new Error('The camera did not return a photo.');
       }
 
+      setIsTransitioning(true);
       setCapturedUri(photo.uri);
       setIsAnalyzing(true);
 
@@ -141,6 +160,8 @@ export default function PhotoScan() {
     } catch (error) {
       if (!abortController.signal.aborted) {
         console.error('Image recognition failed:', error);
+        flashOpacity.setValue(0);
+        setIsTransitioning(false);
         clearClassificationResult();
       }
     } finally {
@@ -179,9 +200,17 @@ export default function PhotoScan() {
   };
 
   const hasDetectedCategory = Boolean(detectedCategory);
+  // Unmount the camera immediately once a captured URI is available.
   const showCamera = !capturedUri;
-  const showResult = capturedUri && !isAnalyzing;
 
+  const showResult = Boolean(capturedUri && !isAnalyzing && !isTransitioning);
+
+  const handleCapturedImageLoad = () => {
+    // Reveal the still image instantly. The camera has already been unmounted.
+    flashOpacity.stopAnimation();
+    flashOpacity.setValue(0);
+    setIsTransitioning(false);
+  };
   const getPrimaryButtonStyle = (pressed: boolean) => [
     styles.primaryButton,
     pressed && styles.primaryButtonPressed,
@@ -211,10 +240,26 @@ export default function PhotoScan() {
           source={{ uri: capturedUri }}
           style={styles.capturedImage}
           resizeMode="cover"
+          fadeDuration={0}
+          onLoad={handleCapturedImageLoad}
+          onError={() => {
+            flashOpacity.stopAnimation();
+            flashOpacity.setValue(0);
+            setIsTransitioning(false);
+          }}
         />
       ) : null}
 
-      {isAnalyzing ? (
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          styles.cameraFlash,
+          { opacity: flashOpacity },
+        ]}
+      />
+
+      {isAnalyzing && !isTransitioning ? (
         <View style={styles.analyzingOverlay}>
           <ActivityIndicator
             size="large"
@@ -237,9 +282,6 @@ export default function PhotoScan() {
         <SafeAreaView style={styles.resultWrap}>
           <View style={styles.resultContent}>
             <View style={styles.card}>
-              <Text style={styles.resultLabel}>CONFIRM CATEGORY</Text>
-
-              <View style={styles.cardDivider} />
 
               {hasDetectedCategory ? (
                 <View style={styles.categoryInfo}>
@@ -338,6 +380,10 @@ const styles = StyleSheet.create({
 
   capturedImage: {
     ...StyleSheet.absoluteFill,
+  },
+
+  cameraFlash: {
+    backgroundColor: '#FFFFFF',
   },
 
   permissionContainer: {
@@ -496,20 +542,6 @@ const styles = StyleSheet.create({
     borderWidth: Border.width,
     borderColor: Colors.border,
     marginBottom: 12,
-  },
-
-  resultLabel: {
-    color: Colors.textMuted,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1,
-    textAlign: 'center',
-  },
-
-  cardDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
-    marginVertical: 18,
   },
 
   categoryInfo: {
