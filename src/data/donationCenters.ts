@@ -5,7 +5,7 @@ import { DEFAULT_DONATION_CENTERS } from './defaultDonationCenters';
 
 const STORAGE_KEY = 'donatesmart_donation_centers';
 const SEED_VERSION_KEY = 'donatesmart_donation_centers_seed_version';
-const SEED_VERSION = '13';
+const SEED_VERSION = '14';
 const taxonomyCategories = taxonomyData as TaxonomyCategory[];
 const categoriesById = new Map(
   taxonomyCategories.map((category) => [category.id, category]),

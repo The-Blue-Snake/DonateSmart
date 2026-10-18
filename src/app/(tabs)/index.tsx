@@ -32,41 +32,65 @@ const OPTIONS = [
   },
 ];
 
-const BRAND_OUTLINE_OFFSETS = [
-  [-0.7, 0],
-  [0.7, 0],
-  [0, -0.7],
-  [0, 0.7],
-  [-0.5, -0.5],
-  [0.5, -0.5],
-  [-0.5, 0.5],
-  [0.5, 0.5],
-] as const;
-
 export default function Home() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.content}>
         <View style={styles.brandTitleContainer}>
-          {BRAND_OUTLINE_OFFSETS.map(([x, y], index) => (
+          <View
+            accessible={false}
+            style={[
+              styles.brandTitleStack,
+              styles.brandTitleOutline,
+            ]}
+          >
             <Text
-              key={index}
+              style={[
+                styles.brandTitle,
+                styles.brandTitleOutlineText,
+                styles.brandTitleFirstWord,
+              ]}
+            >
+              Donate
+            </Text>
+            <Text
+              style={[
+                styles.brandTitle,
+                styles.brandTitleOutlineText,
+                styles.brandTitleSecondWord,
+              ]}
+            >
+              Smart
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.brandTitleStack,
+              styles.brandTitleFace,
+            ]}
+          >
+            <Text
+              accessibilityRole="header"
+              accessibilityLabel="Donate Smart"
+              style={[
+                styles.brandTitle,
+                styles.brandTitleFaceText,
+                styles.brandTitleFirstWord,
+              ]}
+            >
+              Donate
+            </Text>
+            <Text
               accessible={false}
               style={[
                 styles.brandTitle,
-                styles.brandTitleOutline,
-                { transform: [{ rotate: '-2deg' }, { translateX: x }, { translateY: y }] },
+                styles.brandTitleFaceText,
+                styles.brandTitleSecondWord,
               ]}
             >
-              DonateSmart
+              Smart
             </Text>
-          ))}
-          <Text
-            accessibilityRole="header"
-            style={[styles.brandTitle, styles.brandTitleFace]}
-          >
-            DonateSmart
-          </Text>
+          </View>
         </View>
 
         <View style={styles.actions}>
@@ -130,7 +154,7 @@ const styles = StyleSheet.create({
       android: 'casual',
       default: 'cursive',
     }),
-    fontSize: 58,
+    fontSize: 66,
     fontWeight: '900',
     letterSpacing: 0.5,
     textAlign: 'center',
@@ -139,20 +163,43 @@ const styles = StyleSheet.create({
 
   brandTitleContainer: {
     position: 'relative',
-    marginTop: 56,
+    marginTop: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
+  brandTitleStack: {
+    alignItems: 'center',
+  },
+
   brandTitleOutline: {
     position: 'absolute',
-    alignSelf: 'stretch',
+    transform: [
+      { rotate: '-5deg' },
+      { translateX: -2.5 },
+      { translateY: 2.5 },
+    ],
+  },
+
+  brandTitleOutlineText: {
     color: Colors.border,
   },
 
+  brandTitleFirstWord: {
+    transform: [{ translateX: -42 }],
+  },
+
+  brandTitleSecondWord: {
+    marginTop: -18,
+    transform: [{ translateX: 42 }],
+  },
+
   brandTitleFace: {
+    transform: [{ rotate: '-5deg' }],
+  },
+
+  brandTitleFaceText: {
     color: Colors.primary,
-    transform: [{ rotate: '-2deg' }],
   },
 
   actions: {
