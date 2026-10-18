@@ -44,15 +44,16 @@ export default function Home() {
               styles.brandTitleOutline,
             ]}
           >
-            <Text
-              style={[
-                styles.brandTitle,
-                styles.brandTitleOutlineText,
-                styles.brandTitleFirstWord,
-              ]}
-            >
-              Donate
-            </Text>
+            <View style={styles.brandTitleFirstWord}>
+              <Text
+                style={[
+                  styles.brandTitle,
+                  styles.brandTitleOutlineText,
+                ]}
+              >
+                Donate
+              </Text>
+            </View>
             <Text
               style={[
                 styles.brandTitle,
@@ -69,17 +70,35 @@ export default function Home() {
               styles.brandTitleFace,
             ]}
           >
-            <Text
-              accessibilityRole="header"
-              accessibilityLabel="Donate Smart"
-              style={[
-                styles.brandTitle,
-                styles.brandTitleFaceText,
-                styles.brandTitleFirstWord,
-              ]}
-            >
-              Donate
-            </Text>
+            <View style={styles.brandTitleFirstWord}>
+              <Text
+                accessibilityRole="header"
+                accessibilityLabel="Donate Smart"
+                style={[
+                  styles.brandTitle,
+                  styles.brandTitleFaceText,
+                ]}
+              >
+                Donate
+              </Text>
+              <View
+                accessible={false}
+                style={styles.brandHeart}
+              >
+                <Ionicons
+                  name="heart"
+                  size={34}
+                  color={Colors.secondary}
+                  style={styles.brandHeartFill}
+                />
+                <Ionicons
+                  name="heart-outline"
+                  size={39}
+                  color={Colors.text}
+                  style={styles.brandHeartOutline}
+                />
+              </View>
+            </View>
             <Text
               accessible={false}
               style={[
@@ -186,7 +205,28 @@ const styles = StyleSheet.create({
   },
 
   brandTitleFirstWord: {
+    position: 'relative',
     transform: [{ translateX: -42 }],
+  },
+
+  brandHeart: {
+    position: 'absolute',
+    top: 2,
+    right: -62,
+    width: 48,
+    height: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  brandHeartFill: {
+    position: 'absolute',
+    transform: [{ rotate: '15deg' }],
+  },
+
+  brandHeartOutline: {
+    position: 'absolute',
+    transform: [{ rotate: '15deg' }],
   },
 
   brandTitleSecondWord: {
