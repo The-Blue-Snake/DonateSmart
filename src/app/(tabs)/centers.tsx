@@ -1,9 +1,10 @@
 import { useAppTabNavigation } from '@/components/app-tab-navigation';
 import { Border, Colors, Spacing } from '@/constants/theme';
 import type { DonationCenter, PhotoSource } from '@/constants/types';
-import { getCenters } from '@/data/donationCenters';
+import { getCenters, isCategoryMatch } from '@/data/donationCenters';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { isLikelyOpenNow } from '@/lib/hours';
 import * as Location from 'expo-location';
 import {
   useFocusEffect,
@@ -20,6 +21,7 @@ import {
   Animated,
   Dimensions,
   Linking,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -96,43 +98,9 @@ const getSingleParam = (
   value: string | string[] | undefined,
 ) => (Array.isArray(value) ? value[0] : value);
 
-const normalizeCategoryPath = (category: string) =>
-  category
-    .toLowerCase()
-    .split('>')
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-const isCategoryMatch = (
-  acceptedCategory: string,
-  selectedCategory: string,
-) => {
-  const acceptedPath =
-    normalizeCategoryPath(acceptedCategory);
-
-  const selectedPath =
-    normalizeCategoryPath(selectedCategory);
-
-  if (!acceptedPath.length || !selectedPath.length) {
-    return (
-      acceptedCategory.toLowerCase().trim() ===
-      selectedCategory.toLowerCase().trim()
-    );
-  }
-
-  if (acceptedPath.length > selectedPath.length) {
-    return false;
-  }
-
-  return acceptedPath.every(
-    (segment, index) =>
-      segment === selectedPath[index],
-  );
-};
-
 const distanceBetween = (
   first: Location.LocationObjectCoords,
-  second: Location.LocationGeocodedLocation,
+  second: Pick<DonationCenter, 'latitude' | 'longitude'>,
 ) => {
   const latitudeDelta =
     (first.latitude - second.latitude) *
@@ -163,252 +131,6 @@ const distanceBetween = (
     )
   );
 };
-
-// --- "Open now" helpers -----------------------------------------------
-
-const DAY_ALIASES: Record<string, number> = {
-  sun: 0,
-  mon: 1,
-  tue: 2,
-  wed: 3,
-  thu: 4,
-  fri: 5,
-  sat: 6,
-};
-
-const parseTimeToMinutes = (
-  time: string,
-): number | null => {
-  const match = time
-    .trim()
-    .match(
-      /^(\d{1,2})(?::(\d{2}))?(AM|PM)$/i,
-    );
-
-  if (!match) {
-    return null;
-  }
-
-  let hours = Number(match[1]);
-  const minutes = Number(match[2] ?? 0);
-  const period = match[3].toUpperCase();
-
-  if (
-    hours < 1 ||
-    hours > 12 ||
-    minutes > 59
-  ) {
-    return null;
-  }
-
-  if (period === 'AM' && hours === 12) {
-    hours = 0;
-  } else if (
-    period === 'PM' &&
-    hours !== 12
-  ) {
-    hours += 12;
-  }
-
-  return hours * 60 + minutes;
-};
-
-const getDaysFromRange = (
-  rawDays: string,
-): number[] => {
-  const days = new Set<number>();
-
-  rawDays
-    .split('/')
-    .forEach((part) => {
-      const range = part.match(
-        /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)-(Mon|Tue|Wed|Thu|Fri|Sat|Sun)$/i,
-      );
-
-      if (range) {
-        const start =
-          DAY_ALIASES[
-            range[1].toLowerCase()
-          ];
-
-        const end =
-          DAY_ALIASES[
-            range[2].toLowerCase()
-          ];
-
-        if (
-          start === undefined ||
-          end === undefined
-        ) {
-          return;
-        }
-
-        let day = start;
-
-        while (true) {
-          days.add(day);
-
-          if (day === end) {
-            break;
-          }
-
-          day = (day + 1) % 7;
-
-          if (days.size >= 7) {
-            break;
-          }
-        }
-
-        return;
-      }
-
-      const day =
-        DAY_ALIASES[part.toLowerCase()];
-
-      if (day !== undefined) {
-        days.add(day);
-      }
-    });
-
-  return [...days];
-};
-
-export const isLikelyOpenNow = (
-  hoursText: string | undefined,
-  now = new Date(),
-): boolean => {
-  if (!hoursText) {
-    return false;
-  }
-
-  /*
-   * Some centers have:
-   *
-   * Donations: Mon-Sun 10AM-4PM
-   * Store: Mon-Sun 10AM-7PM
-   *
-   * "Open now" uses the donation hours because the
-   * purpose of the app is finding places currently
-   * accepting donations.
-   */
-  const donationMatch =
-    hoursText.match(
-      /Donations:\s*([^<\n]+?)(?=<|Store:|$)/i,
-    );
-
-  const scheduleText =
-    donationMatch?.[1] ?? hoursText;
-
-  /*
-   * Normalize the dash so both of these work:
-   *
-   * 10AM-4PM
-   * 10AM–4PM
-   */
-  const normalizedSchedule =
-    scheduleText.replace(/[–—]/g, '-');
-
-  /*
-   * Multiple schedules are separated by commas:
-   *
-   * Mon-Fri 10AM-8PM,
-   * Sat 10AM-7PM,
-   * Sun 11AM-6PM
-   */
-  const schedules = normalizedSchedule
-    .split(',')
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  const currentDay = now.getDay();
-
-  const currentMinutes =
-    now.getHours() * 60 +
-    now.getMinutes();
-
-  for (const schedule of schedules) {
-    /*
-     * Matches:
-     *
-     * Mon-Fri 10AM-8PM
-     * Sat 10AM-7PM
-     * Sun 11AM-6PM
-     * Mon/Wed/Fri 11AM-3PM
-     * Wed-Sun 12PM-6PM
-     */
-    const match = schedule.match(
-      /^((?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)(?:-(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun))?(?:\/(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun))*)\s+(\d{1,2}(?::\d{2})?(?:AM|PM))\s*-\s*(\d{1,2}(?::\d{2})?(?:AM|PM))$/i,
-    );
-
-    if (!match) {
-      continue;
-    }
-
-    const days = getDaysFromRange(
-      match[1],
-    );
-
-    if (!days.includes(currentDay)) {
-      continue;
-    }
-
-    const openTime =
-      parseTimeToMinutes(match[2]);
-
-    const closeTime =
-      parseTimeToMinutes(match[3]);
-
-    if (
-      openTime === null ||
-      closeTime === null
-    ) {
-      continue;
-    }
-
-    /*
-     * Normal opening period.
-     *
-     * Example:
-     * 10AM-6PM
-     */
-    if (openTime < closeTime) {
-      if (
-        currentMinutes >= openTime &&
-        currentMinutes < closeTime
-      ) {
-        return true;
-      }
-
-      continue;
-    }
-
-    /*
-     * Overnight opening period.
-     *
-     * Example:
-     * 6PM-2AM
-     *
-     * This isn't currently present in your data,
-     * but supporting it makes the helper safer.
-     */
-    if (openTime > closeTime) {
-      if (
-        currentMinutes >= openTime ||
-        currentMinutes < closeTime
-      ) {
-        return true;
-      }
-    }
-  }
-
-  /*
-   * If no schedule matched, consider the center
-   * closed rather than incorrectly including it.
-   */
-  return false;
-};
-
-// ------------------------------------------------------------------------
 
 export default function CentersList({
   tabParams,
@@ -458,19 +180,7 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
     useState(false);
 
   const [showOpenOnly, setShowOpenOnly] =
-    useState(
-      Boolean(selectedCategory || selectedTopLevel),
-    );
-
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      setShowOpenOnly(
-        Boolean(selectedCategory || selectedTopLevel),
-      );
-    });
-
-    return () => cancelAnimationFrame(frame);
-  }, [selectedCategory, selectedTopLevel]);
+    useState(false);
 
   const [sortMode, setSortMode] =
     useState<SortMode>('nearby');
@@ -485,6 +195,17 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
 
   const [expandedCenterId, setExpandedCenterId] =
     useState<string | null>(null);
+
+  const [activePhotoIndex, setActivePhotoIndex] =
+    useState(0);
+
+  const [isPhotoViewerOpen, setIsPhotoViewerOpen] =
+    useState(false);
+
+  const expandedPhotoScrollRef =
+    useRef<ScrollView | null>(null);
+  const photoViewerScrollRef =
+    useRef<ScrollView | null>(null);
 
   const [expansionProgress] =
     useState(() => new Animated.Value(0));
@@ -521,28 +242,16 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
             {},
           );
 
-        const entries = await Promise.all(
-          centers.map(async (center) => {
-            try {
-              const [coordinate] =
-                await Location.geocodeAsync(
-                  center.address,
-                );
-
-              return [
-                center.id,
-                coordinate
-                  ? distanceBetween(
-                      position.coords,
-                      coordinate,
-                    )
-                  : null,
-              ] as const;
-            } catch {
-              return [center.id, null] as const;
-            }
-          }),
-        );
+        const entries = centers.map((center) => [
+          center.id,
+          Number.isFinite(center.latitude) &&
+          Number.isFinite(center.longitude)
+            ? distanceBetween(
+                position.coords,
+                center,
+              )
+            : null,
+        ] as const);
 
         if (isMounted) {
           setDistances(
@@ -567,21 +276,16 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
 
   const matchesRequestedCategory = useCallback(
     (acceptedCategory: string) => {
-      const requestedPaths = [
-        selectedCategory,
-        selectedTopLevel,
-      ].filter(Boolean) as string[];
+      const requestedCategory =
+        selectedCategory || selectedTopLevel;
 
-      if (!requestedPaths.length) {
+      if (!requestedCategory) {
         return true;
       }
 
-      return requestedPaths.some(
-        (requestedPath) =>
-          isCategoryMatch(
-            acceptedCategory,
-            requestedPath,
-          ),
+      return isCategoryMatch(
+        acceptedCategory,
+        requestedCategory,
       );
     },
     [selectedCategory, selectedTopLevel],
@@ -915,6 +619,7 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
 
     setExpandedIndex(index);
     setExpandedCenterId(item.id);
+    setActivePhotoIndex(0);
 
     requestAnimationFrame(() => {
       Animated.timing(
@@ -943,6 +648,22 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
         setExpandedIndex(null);
         setExpandedCenterId(null);
       }
+    });
+  };
+
+  const openPhotoViewer = () => {
+    setIsPhotoViewerOpen(true);
+  };
+
+  const closePhotoViewer = () => {
+    setIsPhotoViewerOpen(false);
+  };
+
+  const showPhotoInViewer = (index: number) => {
+    setActivePhotoIndex(index);
+    expandedPhotoScrollRef.current?.scrollTo({
+      x: index * EXPANDED_CONTENT_WIDTH,
+      animated: false,
     });
   };
 
@@ -979,6 +700,14 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
     );
 
     void Linking.openURL(`tel:${dialablePhone}`);
+  };
+
+  const openWebsite = (website: string) => {
+    void Linking.openURL(website);
+  };
+
+  const emailCenter = (email: string) => {
+    void Linking.openURL(`mailto:${email}`);
   };
 
   const getCardMotion = (
@@ -1461,7 +1190,6 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
 
   const renderExpandedContent = (
     center: DonationCenter,
-    distance: number | null,
   ) => {
     const photos = center.photos ?? [];
     const isSaved = savedIds.has(
@@ -1475,6 +1203,7 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
         >
           {photos.length > 0 ? (
             <ScrollView
+              ref={expandedPhotoScrollRef}
               horizontal
               pagingEnabled
               showsHorizontalScrollIndicator={
@@ -1488,6 +1217,17 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
               contentContainerStyle={
                 styles.expandedPhotoScrollContent
               }
+              onMomentumScrollEnd={(event) => {
+                const index = Math.round(
+                  event.nativeEvent.contentOffset.x /
+                    EXPANDED_CONTENT_WIDTH,
+                );
+                setActivePhotoIndex(index);
+                photoViewerScrollRef.current?.scrollTo({
+                  x: index * SCREEN_WIDTH,
+                  animated: false,
+                });
+              }}
             >
               {photos.map(
                 (photo, index) => (
@@ -1531,6 +1271,28 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
             </View>
           )}
 
+          {photos.length > 0 ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Expand photos"
+              style={({ pressed }) => [
+                styles.photoExpandButton,
+                pressed && styles.photoExpandButtonPressed,
+              ]}
+              onPress={openPhotoViewer}
+              hitSlop={8}
+            >
+              <Ionicons
+                name="expand-outline"
+                size={18}
+                color="#FFFFFF"
+              />
+              <Text style={styles.photoExpandButtonText}>
+                Expand photos
+              </Text>
+            </Pressable>
+          ) : null}
+
           <Pressable
             style={({ pressed }) => [
               styles.savedToggleButton,
@@ -1567,30 +1329,6 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
             />
           </Pressable>
 
-          {distance !== null ? (
-            <View
-              style={
-                styles.expandedDistancePill
-              }
-            >
-              <View style={styles.expandedDistancePillFill}>
-                <Ionicons
-                  name="navigate"
-                  size={13}
-                  color="#FFFFFF"
-                />
-
-                <Text
-                  style={
-                    styles.expandedDistanceText
-                  }
-                >
-                  {distance.toFixed(1)} mi away
-                </Text>
-              </View>
-            </View>
-          ) : null}
-
           <View
             style={styles.expandedImageInfo}
           >
@@ -1606,12 +1344,6 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
                 styles.expandedAddressRow
               }
             >
-              <Ionicons
-                name="location-outline"
-                size={16}
-                color="rgba(255,255,255,0.9)"
-              />
-
               <Text
                 style={
                   styles.expandedAddress
@@ -1627,6 +1359,13 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
         <View
           style={styles.expandedContent}
         >
+          <ScrollView
+            style={styles.expandedDetailsScroll}
+            contentContainerStyle={
+              styles.expandedDetailsContent
+            }
+            showsVerticalScrollIndicator={false}
+          >
           {center.description ? (
             <Text
               style={
@@ -1676,6 +1415,7 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
 
                 <Text
                   style={styles.metaValue}
+                  numberOfLines={2}
                 >
                   {center.hours}
                 </Text>
@@ -1719,12 +1459,102 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
 
                 <Text
                   style={styles.metaValue}
+                  numberOfLines={1}
                 >
                   {center.phone}
                 </Text>
               </View>
             </Pressable>
           ) : null}
+
+          {center.website ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() =>
+                center.website &&
+                openWebsite(center.website)
+              }
+              style={({ pressed }) => [
+                styles.expandedMetaRow,
+                pressed &&
+                  styles.expandedMetaRowPressed,
+              ]}
+            >
+              <View
+                style={
+                  styles.metaIconCircle
+                }
+              >
+                <Ionicons
+                  name="globe-outline"
+                  size={18}
+                  color={Colors.white}
+                />
+              </View>
+
+              <View
+                style={styles.metaCopy}
+              >
+                <Text
+                  style={styles.metaLabel}
+                >
+                  Website
+                </Text>
+
+                <Text
+                  style={styles.metaValue}
+                  numberOfLines={1}
+                >
+                  {center.website}
+                </Text>
+              </View>
+            </Pressable>
+          ) : null}
+
+          {center.email ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() =>
+                center.email &&
+                emailCenter(center.email)
+              }
+              style={({ pressed }) => [
+                styles.expandedMetaRow,
+                pressed &&
+                  styles.expandedMetaRowPressed,
+              ]}
+            >
+              <View
+                style={
+                  styles.metaIconCircle
+                }
+              >
+                <Ionicons
+                  name="mail-outline"
+                  size={18}
+                  color={Colors.white}
+                />
+              </View>
+
+              <View
+                style={styles.metaCopy}
+              >
+                <Text
+                  style={styles.metaLabel}
+                >
+                  Email
+                </Text>
+
+                <Text
+                  style={styles.metaValue}
+                  numberOfLines={1}
+                >
+                  {center.email}
+                </Text>
+              </View>
+            </Pressable>
+          ) : null}
+          </ScrollView>
 
           <Pressable
             style={({ pressed }) => [
@@ -1886,7 +1716,6 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
                 >
                   {renderExpandedContent(
                     item.center,
-                    item.distance,
                   )}
                 </Animated.View>
               </>
@@ -1927,13 +1756,19 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
             ? 'No centers match that search.'
             : 'No donation centers are available yet.';
 
+  const expandedCenter = carouselItems.find(
+    (item) => item.id === expandedCenterId,
+  )?.center;
+  const expandedPhotos = expandedCenter?.photos ?? [];
+
   return (
-    <SafeAreaView
-      style={styles.container}
-      edges={['top']}
-    >
-      <View style={styles.listArea}>
-        <Animated.FlatList
+    <>
+      <SafeAreaView
+        style={styles.container}
+        edges={['top']}
+      >
+        <View style={styles.listArea}>
+          <Animated.FlatList
           ref={listRef}
           data={carouselItems}
           keyExtractor={(item) => item.id}
@@ -2020,9 +1855,89 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
               </Text>
             </View>
           }
-        />
-      </View>
-    </SafeAreaView>
+          />
+        </View>
+      </SafeAreaView>
+
+      <Modal
+        visible={isPhotoViewerOpen}
+        animationType="fade"
+        presentationStyle="fullScreen"
+        onRequestClose={closePhotoViewer}
+        onShow={() =>
+          photoViewerScrollRef.current?.scrollTo({
+            x: activePhotoIndex * SCREEN_WIDTH,
+            animated: false,
+          })
+        }
+      >
+        <View style={styles.photoViewer}>
+          <ScrollView
+            key={expandedCenterId ?? 'photo-viewer'}
+            ref={photoViewerScrollRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            bounces={false}
+            contentOffset={{
+              x: activePhotoIndex * SCREEN_WIDTH,
+              y: 0,
+            }}
+            onMomentumScrollEnd={(event) =>
+              showPhotoInViewer(
+                Math.round(
+                  event.nativeEvent.contentOffset.x /
+                    SCREEN_WIDTH,
+                ),
+              )
+            }
+          >
+            {expandedPhotos.map((photo, index) => (
+              <View
+                key={`${expandedCenterId}-viewer-photo-${index}`}
+                style={styles.photoViewerPage}
+              >
+                <Image
+                  source={resolvePhotoSource(photo)}
+                  style={styles.photoViewerImage}
+                  contentFit="contain"
+                  cachePolicy="memory-disk"
+                  priority="high"
+                />
+              </View>
+            ))}
+          </ScrollView>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close photo viewer"
+            style={({ pressed }) => [
+              styles.photoViewerClose,
+              pressed && styles.photoViewerButtonPressed,
+            ]}
+            onPress={closePhotoViewer}
+            hitSlop={8}
+          >
+            <Ionicons
+              name="close"
+              size={24}
+              color="#FFFFFF"
+            />
+          </Pressable>
+
+          {expandedPhotos.length > 1 ? (
+            <View
+              pointerEvents="none"
+              style={styles.photoViewerCounter}
+            >
+              <Text style={styles.photoViewerCounterText}>
+                {activePhotoIndex + 1} / {expandedPhotos.length}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -2414,7 +2329,7 @@ const styles = StyleSheet.create({
   },
 
   expandedImageArea: {
-    height: 238,
+    height: 258,
     justifyContent: 'flex-end',
     overflow: 'hidden',
     backgroundColor: Colors.background,
@@ -2460,6 +2375,86 @@ const styles = StyleSheet.create({
     opacity: 0.31,
   },
 
+  photoExpandButton: {
+    position: 'absolute',
+    top: 14,
+    alignSelf: 'center',
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingHorizontal: 12,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: Border.width,
+    borderColor: Colors.border,
+    backgroundColor: 'rgba(0,0,0,0.48)',
+  },
+
+  photoExpandButtonPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.96 }],
+  },
+
+  photoExpandButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  photoViewer: {
+    flex: 1,
+    justifyContent: 'center',
+    backgroundColor: '#000000',
+  },
+
+  photoViewerPage: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  photoViewerImage: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+  },
+
+  photoViewerClose: {
+    position: 'absolute',
+    top: 48,
+    right: 20,
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: Border.width,
+    borderColor: 'rgba(255,255,255,0.75)',
+    borderRadius: 21,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+
+  photoViewerButtonPressed: {
+    opacity: 0.8,
+  },
+
+  photoViewerCounter: {
+    position: 'absolute',
+    bottom: 36,
+    alignSelf: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+
+  photoViewerCounterText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
   savedToggleButton: {
     position: 'absolute',
     top: 14,
@@ -2469,13 +2464,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 18,
-    backgroundColor:
-      'rgba(0,0,0,0.42)',
+    borderWidth: Border.width,
+    borderColor: Colors.border,
+    backgroundColor: Colors.secondary,
   },
 
   savedToggleButtonPressed: {
-    backgroundColor:
-      'rgba(0,0,0,0.62)',
+    opacity: 0.8,
     transform: [{ scale: 0.94 }],
   },
 
@@ -2488,13 +2483,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 18,
-    backgroundColor:
-      'rgba(0,0,0,0.42)',
+    borderWidth: Border.width,
+    borderColor: Colors.border,
+    backgroundColor: Colors.secondary,
   },
 
   closeExpandedButtonPressed: {
-    backgroundColor:
-      'rgba(0,0,0,0.62)',
+    opacity: 0.8,
     transform: [{ scale: 0.94 }],
   },
 
@@ -2570,27 +2565,37 @@ const styles = StyleSheet.create({
 
   expandedContent: {
     flex: 1,
-    paddingHorizontal: 19,
-    paddingTop: 18,
-    paddingBottom: 18,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+  },
+
+  expandedDetailsScroll: {
+    flex: 1,
+  },
+
+  expandedDetailsContent: {
+    paddingBottom: 8,
   },
 
   expandedDescription: {
     color: Colors.text,
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 16,
+    marginBottom: 6,
   },
 
   expandedDescriptionMuted: {
     color: Colors.textMuted,
-    fontSize: 14,
-    lineHeight: 19.5,
+    fontSize: 13,
+    lineHeight: 16,
+    marginBottom: 6,
   },
 
   expandedMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 7,
   },
 
   expandedMetaRowPressed: {
@@ -2598,11 +2603,11 @@ const styles = StyleSheet.create({
   },
 
   metaIconCircle: {
-    width: 37,
-    height: 37,
+    width: 29,
+    height: 29,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: 9,
     borderWidth: Border.width,
     borderColor: Colors.border,
     backgroundColor: Colors.secondary,
@@ -2610,30 +2615,30 @@ const styles = StyleSheet.create({
 
   metaCopy: {
     flex: 1,
-    marginLeft: 11,
+    marginLeft: 8,
   },
 
   metaLabel: {
     color: Colors.textMuted,
-    fontSize: 11.5,
+    fontSize: 10,
     fontWeight: '600',
   },
 
   metaValue: {
     color: Colors.text,
-    fontSize: 13.5,
-    lineHeight: 19,
-    marginTop: 1,
+    fontSize: 12,
+    lineHeight: 15,
   },
 
   mapButton: {
-    minHeight: 52,
+    minHeight: 46,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 17,
-    marginTop: 21,
+    marginTop: 8,
     borderRadius: 14,
     backgroundColor: Colors.primary,
+    flexShrink: 0,
   },
 
   mapButtonPressed: {

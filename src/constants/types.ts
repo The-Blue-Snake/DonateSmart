@@ -18,6 +18,7 @@ export type DonationCenter = {
   hours?: string;
   phone?: string;
   website?: string;
+  email?: string;
   latitude: number;
   longitude: number;
 };

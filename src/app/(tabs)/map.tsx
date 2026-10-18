@@ -3,10 +3,12 @@ import { Border, Colors, Spacing } from '@/constants/theme';
 import type { DonationCenter } from '@/constants/types';
 import { getCenters } from '@/data/donationCenters';
 import { Ionicons } from '@expo/vector-icons';
+import { isLikelyOpenNow } from '@/lib/hours';
 import * as Location from 'expo-location';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Dimensions,
   Linking,
   Pressable,
   StyleSheet,
@@ -15,7 +17,6 @@ import {
 } from 'react-native';
 import MapView, { Marker, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { isLikelyOpenNow } from './centers';
 
 type Coordinate = {
   latitude: number;
@@ -35,6 +36,79 @@ const MINNEAPOLIS: Region = {
   longitudeDelta: 0.6,
 };
 
+const CLUSTER_SIZE = 56;
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } =
+  Dimensions.get('window');
+
+const getStoredCoordinate = (
+  center: DonationCenter,
+): Coordinate | undefined =>
+  Number.isFinite(center.latitude) &&
+  Number.isFinite(center.longitude)
+    ? {
+        latitude: center.latitude,
+        longitude: center.longitude,
+      }
+    : undefined;
+
+type CenterMarker = {
+  center: DonationCenter;
+  coordinate: Coordinate;
+};
+
+type CenterCluster = {
+  id: string;
+  centers: CenterMarker[];
+  coordinate: Coordinate;
+};
+
+const clusterMarkers = (
+  markers: CenterMarker[],
+  region: Region,
+): CenterCluster[] => {
+  const latitudeCellSize =
+    (region.latitudeDelta * CLUSTER_SIZE) /
+    SCREEN_HEIGHT;
+  const longitudeCellSize =
+    (region.longitudeDelta * CLUSTER_SIZE) /
+    SCREEN_WIDTH;
+  const groups = new Map<string, CenterMarker[]>();
+
+  markers.forEach((marker) => {
+    const latitudeCell = Math.floor(
+      marker.coordinate.latitude / latitudeCellSize,
+    );
+    const longitudeCell = Math.floor(
+      marker.coordinate.longitude / longitudeCellSize,
+    );
+    const key = `${latitudeCell}:${longitudeCell}`;
+    const group = groups.get(key);
+
+    if (group) {
+      group.push(marker);
+    } else {
+      groups.set(key, [marker]);
+    }
+  });
+
+  return Array.from(groups.values()).map((centers) => ({
+    id: centers.map(({ center }) => center.id).join(':'),
+    centers,
+    coordinate: {
+      latitude:
+        centers.reduce(
+          (total, marker) => total + marker.coordinate.latitude,
+          0,
+        ) / centers.length,
+      longitude:
+        centers.reduce(
+          (total, marker) => total + marker.coordinate.longitude,
+          0,
+        ) / centers.length,
+    },
+  }));
+};
+
 export default function MapScreen({
   tabParams,
 }: MapScreenProps = {}) {
@@ -50,9 +124,6 @@ export default function MapScreen({
     (Array.isArray(centerId) ? centerId[0] : centerId);
 
   const [centers, setCenters] = useState<DonationCenter[]>([]);
-  const [coordinates, setCoordinates] = useState<
-    Record<string, Coordinate>
-  >({});
   const [selectedId, setSelectedId] = useState<string | null>(
     focusedCenterId ?? null,
   );
@@ -65,9 +136,8 @@ export default function MapScreen({
     useState(false);
   const [showOpenOnly, setShowOpenOnly] =
     useState(false);
-  const [mapRenderVersion, setMapRenderVersion] =
-    useState(0);
-  const coordinateCache = useRef<Record<string, Coordinate>>({});
+  const [mapRegion, setMapRegion] =
+    useState<Region>(MINNEAPOLIS);
   const mapRef = useRef<MapView>(null);
 
   useFocusEffect(
@@ -97,54 +167,6 @@ export default function MapScreen({
   }, [focusedCenterId]);
 
   useEffect(() => {
-    let active = true;
-
-    const geocodeCenters = async () => {
-      const orderedCenters = mapFocusId
-        ? [...centers].sort((first) =>
-            first.id === mapFocusId ? -1 : 1,
-          )
-        : centers;
-
-      for (const center of orderedCenters) {
-        if (!active || coordinateCache.current[center.id]) {
-          continue;
-        }
-
-        try {
-          const [coordinate] = await Location.geocodeAsync(
-            center.address,
-          );
-
-          if (active && coordinate) {
-            const resolved = {
-              latitude: coordinate.latitude,
-              longitude: coordinate.longitude,
-            };
-
-            coordinateCache.current[center.id] = resolved;
-
-            setCoordinates((current) => ({
-              ...current,
-              [center.id]: resolved,
-            }));
-          }
-        } catch {
-          continue;
-        }
-      }
-    };
-
-    if (centers.length) {
-      geocodeCenters();
-    }
-
-    return () => {
-      active = false;
-    };
-  }, [centers, mapFocusId]);
-
-  useEffect(() => {
     Location.requestForegroundPermissionsAsync()
       .then(({ status }) =>
         status === Location.PermissionStatus.GRANTED
@@ -166,30 +188,51 @@ export default function MapScreen({
     (center) => center.id === selectedId,
   );
 
-  const markers = centers
-    .filter(
-      (center) =>
-        !mapFocusId || center.id === mapFocusId,
-    )
-    .filter(
-      (center) =>
-        !showSavedOnly ||
-        savedCenterIds.has(center.id),
-    )
-    .filter(
-      (center) =>
-        !showOpenOnly ||
-        isLikelyOpenNow(center.hours),
-    )
-    .filter((center) => coordinates[center.id])
-    .map((center) => ({
-      center,
-      coordinate: coordinates[center.id],
-    }));
+  const markers = useMemo(
+    () =>
+      centers
+        .filter(
+          (center) =>
+            !mapFocusId || center.id === mapFocusId,
+        )
+        .filter(
+          (center) =>
+            !showSavedOnly ||
+            savedCenterIds.has(center.id),
+        )
+        .filter(
+          (center) =>
+            !showOpenOnly ||
+            isLikelyOpenNow(center.hours),
+        )
+        .map((center) => ({
+          center,
+          coordinate: getStoredCoordinate(center),
+        }))
+        .filter(
+          (
+            marker,
+          ): marker is {
+            center: DonationCenter;
+            coordinate: Coordinate;
+          } => Boolean(marker.coordinate),
+        ),
+    [
+      centers,
+      mapFocusId,
+      savedCenterIds,
+      showOpenOnly,
+      showSavedOnly,
+    ],
+  );
 
-  const focusedCoordinate = mapFocusId
-    ? coordinates[mapFocusId]
+  const focusedCenter = mapFocusId
+    ? centers.find((center) => center.id === mapFocusId)
     : undefined;
+  const focusedCoordinate = focusedCenter
+    ? getStoredCoordinate(focusedCenter)
+    : undefined;
+  const mapKey = mapFocusId ?? 'all-centers';
   const mapInitialRegion: Region = focusedCoordinate
     ? {
         ...focusedCoordinate,
@@ -197,6 +240,10 @@ export default function MapScreen({
         longitudeDelta: 0.025,
       }
     : MINNEAPOLIS;
+  const markerClusters = useMemo(
+    () => clusterMarkers(markers, mapRegion),
+    [markers, mapRegion],
+  );
 
   /*
    * Selecting a pin is intentionally LOCAL state only.
@@ -217,20 +264,24 @@ export default function MapScreen({
   const showAllCenters = () => {
     setSelectedId(null);
     setMapFocusId(null);
+    setMapRegion(MINNEAPOLIS);
   };
 
-  const toggleMapFilter = (
-    filter: 'saved' | 'open',
-  ) => {
-    if (filter === 'saved') {
-      setShowSavedOnly((current) => !current);
-    } else {
-      setShowOpenOnly((current) => !current);
-    }
-
-    setSelectedId(null);
-    setMapFocusId(null);
-    setMapRenderVersion((current) => current + 1);
+  const expandCluster = (cluster: CenterCluster) => {
+    mapRef.current?.animateToRegion(
+      {
+        ...cluster.coordinate,
+        latitudeDelta: Math.max(
+          mapRegion.latitudeDelta * 0.35,
+          0.005,
+        ),
+        longitudeDelta: Math.max(
+          mapRegion.longitudeDelta * 0.35,
+          0.005,
+        ),
+      },
+      300,
+    );
   };
 
   const openRoute = async (
@@ -263,31 +314,54 @@ export default function MapScreen({
     >
       <View style={styles.mapCard}>
         <MapView
-          key={`${mapFocusId ?? 'all-centers'}-${focusedCoordinate?.latitude ?? ''}-${focusedCoordinate?.longitude ?? ''}-${mapRenderVersion}`}
+          key={mapKey}
           ref={mapRef}
           style={styles.map}
           initialRegion={mapInitialRegion}
+          onRegionChangeComplete={(region) =>
+            setMapRegion(region)
+          }
           mapType="standard"
           tintColor={Colors.secondary}
           userInterfaceStyle="light"
           showsUserLocation={false}
           removeClippedSubviews={false}
         >
-          {markers.map(({ center, coordinate }) => (
+          {markerClusters.map((cluster) => (
             <Marker
-              key={center.id}
-              coordinate={coordinate}
+              key={cluster.id}
+              coordinate={cluster.coordinate}
               anchor={{ x: 0.5, y: 0.5 }}
-              onPress={() => focusOnCenter(center.id)}
+              onPress={() => {
+                if (cluster.centers.length === 1) {
+                  focusOnCenter(cluster.centers[0].center.id);
+                } else {
+                  expandCluster(cluster);
+                }
+              }}
             >
-              <View style={styles.pinShadowWrap}>
-                <View style={styles.centerPin}>
-                  <Ionicons
-                    name="heart"
-                    size={16}
-                    color={Colors.white}
-                  />
-                </View>
+              <View
+                style={
+                  cluster.centers.length === 1
+                    ? styles.pinShadowWrap
+                    : styles.clusterShadowWrap
+                }
+              >
+                {cluster.centers.length === 1 ? (
+                  <View style={styles.centerPin}>
+                    <Ionicons
+                      name="heart"
+                      size={16}
+                      color={Colors.white}
+                    />
+                  </View>
+                ) : (
+                  <View style={styles.clusterPin}>
+                    <Text style={styles.clusterCount}>
+                      {cluster.centers.length}
+                    </Text>
+                  </View>
+                )}
               </View>
             </Marker>
           ))}
@@ -437,7 +511,11 @@ export default function MapScreen({
                     pressed &&
                       styles.filterButtonPressed,
                   ]}
-                  onPress={() => toggleMapFilter('saved')}
+                  onPress={() =>
+                    setShowSavedOnly(
+                      (current) => !current,
+                    )
+                  }
                 >
                   <Ionicons
                     name={
@@ -471,7 +549,11 @@ export default function MapScreen({
                     pressed &&
                       styles.filterButtonPressed,
                   ]}
-                  onPress={() => toggleMapFilter('open')}
+                  onPress={() =>
+                    setShowOpenOnly(
+                      (current) => !current,
+                    )
+                  }
                 >
                   <Ionicons
                     name={
@@ -537,11 +619,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.42)',
+    borderWidth: Border.width,
+    borderColor: Colors.border,
+    backgroundColor: Colors.secondary,
   },
 
   closeButtonPressed: {
-    backgroundColor: 'rgba(0,0,0,0.62)',
+    opacity: 0.8,
     transform: [{ scale: 0.94 }],
   },
 
@@ -558,6 +642,41 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 4,
     elevation: 6,
+  },
+
+  clusterShadowWrap: {
+    minWidth: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 6,
+  },
+
+  clusterPin: {
+    minWidth: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    borderWidth: Border.width / 1.5,
+    borderColor: Colors.border,
+    borderRadius: 17,
+    backgroundColor: Colors.primary,
+  },
+
+  clusterCount: {
+    color: Colors.white,
+    fontSize: 13,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
 
   centerPin: {
@@ -642,12 +761,13 @@ const styles = StyleSheet.create({
   },
 
   filterButtonActive: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primary,
+    borderColor: Colors.secondary,
+    backgroundColor: Colors.secondary,
   },
 
   filterButtonPressed: {
     opacity: 0.8,
+    transform: [{ scale: 0.985 }],
   },
 
   filterButtonText: {
@@ -692,7 +812,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: Border.width,
     borderColor: Colors.border,
-    borderRadius: 10,
+    borderRadius: 18,
     backgroundColor: Colors.secondary,
   },
 
@@ -703,7 +823,7 @@ const styles = StyleSheet.create({
 
   savedCenterButtonPressed: {
     opacity: 0.8,
-    transform: [{ scale: 0.96 }],
+    transform: [{ scale: 0.94 }],
   },
 
   divider: {

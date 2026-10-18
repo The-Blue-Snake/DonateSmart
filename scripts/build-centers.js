@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const AdmZip = require('adm-zip');
+const sharp = require('sharp');
 const XLSX = require('xlsx');
 
 const dataDir = path.join(__dirname, '..', 'src', 'data');
@@ -116,9 +117,7 @@ function getMasterPhotoFolder() {
   const existingFiles = fs.existsSync(masterAssetFolder)
     ? fs
         .readdirSync(masterAssetFolder)
-        .filter((file) =>
-          file.toLowerCase().endsWith('.png')
-        )
+        .filter((file) => /\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/i.test(file))
     : [];
 
   existingFiles.forEach((file) => {
@@ -152,7 +151,7 @@ function getMasterPhotoFolder() {
  *
  * NOT excelRow - 2.
  */
-function buildImageMapFromSpreadsheet(
+async function buildImageMapFromSpreadsheet(
   workbookPath,
   rowCount,
   rowOffset
@@ -277,9 +276,9 @@ function buildImageMapFromSpreadsheet(
     const globalRowIndex =
       rowOffset + localRowIndex;
 
-    mapping[String(globalRowIndex)] =
+    mapping[String(globalRowIndex)] = await Promise.all(
       imageFiles.map(
-        (mediaTarget, imageIndex) => {
+        async (mediaTarget, imageIndex) => {
           const sourceFileName =
             path.basename(mediaTarget);
 
@@ -294,29 +293,28 @@ function buildImageMapFromSpreadsheet(
           const sourceEntry = zip.getEntry(mediaPath);
 
           if (!sourceEntry) {
-            console.warn(
+            throw new Error(
               `Could not find ${mediaPath} in ${path.basename(workbookPath)}`
             );
-
-            return targetFileName;
           }
 
           const sourceBuffer =
             zip.readFile(mediaPath);
 
-          if (sourceBuffer) {
-            fs.writeFileSync(
+          await sharp(sourceBuffer)
+            .flatten({ background: '#ffffff' })
+            .png({ compressionLevel: 9 })
+            .toFile(
               path.join(
                 masterAssetFolder,
                 targetFileName
-              ),
-              sourceBuffer
+              )
             );
-          }
 
           return targetFileName;
-        }
-      );
+        },
+      ),
+    );
   }
 
   return mapping;
@@ -351,6 +349,16 @@ function buildCenterEntry(center) {
         ? JSON.stringify(center.phone)
         : 'undefined'
     },`,
+    `    website: ${
+      center.website
+        ? JSON.stringify(center.website)
+        : 'undefined'
+    },`,
+    `    email: ${
+      center.email
+        ? JSON.stringify(center.email)
+        : 'undefined'
+    },`,
     `    latitude: ${center.latitude},`,
     `    longitude: ${center.longitude},`,
     '  },',
@@ -359,7 +367,7 @@ function buildCenterEntry(center) {
   return lines.join('\n');
 }
 
-function main() {
+async function main() {
   cleanupStalePhotoFolders();
 
   const spreadsheetFiles =
@@ -378,104 +386,110 @@ function main() {
   const combinedImageMap = {};
   const outputRows = [];
 
-  spreadsheetFiles.forEach(
-    (workbookPath) => {
-      const workbook =
-        XLSX.readFile(workbookPath);
+  for (const workbookPath of spreadsheetFiles) {
+    const workbook =
+      XLSX.readFile(workbookPath);
 
-      const firstSheetName =
-        Object.keys(workbook.Sheets)[0];
+    const firstSheetName =
+      Object.keys(workbook.Sheets)[0];
 
-      const sheet =
-        workbook.Sheets['Donation Centers'] ??
-        workbook.Sheets[firstSheetName];
+    const sheet =
+      workbook.Sheets['Donation Centers'] ??
+      workbook.Sheets[firstSheetName];
 
-      const rows =
-        XLSX.utils.sheet_to_json(sheet, {
-          defval: '',
-          raw: false,
-          blankrows: false,
+    const rows =
+      XLSX.utils.sheet_to_json(sheet, {
+        defval: '',
+        raw: false,
+        blankrows: false,
+      });
+
+    console.log(
+      `Processing ${path.basename(workbookPath)}: ${rows.length} rows`
+    );
+
+    const imageMap =
+      await buildImageMapFromSpreadsheet(
+        workbookPath,
+        rows.length,
+        globalOffset
+      );
+
+    Object.assign(
+      combinedImageMap,
+      imageMap
+    );
+
+    rows.forEach(
+      (row, localIndex) => {
+        const index =
+          globalOffset + localIndex;
+
+        const name =
+          normalizeText(row.Name);
+
+        const description =
+          normalizeText(row.Description);
+
+        const address =
+          normalizeText(row.Address);
+
+        const acceptedCategories =
+          normalizeAcceptedCategories(
+            row[
+              'Items Accepted (Google Product Taxonomy)'
+            ]
+          );
+
+        const hours =
+          normalizeText(row.Hours ?? row['Hours ']);
+
+        const phone =
+          normalizeText(row.Phone);
+
+        const website =
+          normalizeText(row.Website);
+
+        const email =
+          normalizeText(row['Email (If Available)']);
+
+        const latitude =
+          Number(row.Latitude);
+
+        const longitude =
+          Number(row.Longitude);
+
+        const photos =
+          readImagePaths(
+            index,
+            combinedImageMap
+          );
+
+        outputRows.push({
+          id: `default-${index + 1}`,
+          name,
+          description,
+          address,
+          acceptedCategories,
+          photos,
+          hours: hours || undefined,
+          phone: phone || undefined,
+          website: website || undefined,
+          email: email || undefined,
+          latitude:
+            Number.isFinite(latitude)
+              ? latitude
+              : 0,
+          longitude:
+            Number.isFinite(longitude)
+              ? longitude
+              : 0,
         });
+      }
+    );
 
-      console.log(
-        `Processing ${path.basename(workbookPath)}: ${rows.length} rows`
-      );
-
-      const imageMap =
-        buildImageMapFromSpreadsheet(
-          workbookPath,
-          rows.length,
-          globalOffset
-        );
-
-      Object.assign(
-        combinedImageMap,
-        imageMap
-      );
-
-      rows.forEach(
-        (row, localIndex) => {
-          const index =
-            globalOffset + localIndex;
-
-          const name =
-            normalizeText(row.Name);
-
-          const description =
-            normalizeText(row.Description);
-
-          const address =
-            normalizeText(row.Address);
-
-          const acceptedCategories =
-            normalizeAcceptedCategories(
-              row[
-                'Items Accepted (Google Product Taxonomy)'
-              ]
-            );
-
-          const hours =
-            normalizeText(row['Hours ']);
-
-          const phone =
-            normalizeText(row.Phone);
-
-          const latitude =
-            Number(row.Latitude);
-
-          const longitude =
-            Number(row.Longitude);
-
-          const photos =
-            readImagePaths(
-              index,
-              combinedImageMap
-            );
-
-          outputRows.push({
-            id: `default-${index + 1}`,
-            name,
-            description,
-            address,
-            acceptedCategories,
-            photos,
-            hours: hours || undefined,
-            phone: phone || undefined,
-            latitude:
-              Number.isFinite(latitude)
-                ? latitude
-                : 0,
-            longitude:
-              Number.isFinite(longitude)
-                ? longitude
-                : 0,
-          });
-        }
-      );
-
-      globalOffset += rows.length;
-    }
-  );
+    globalOffset += rows.length;
+  }
 
   const output = [
     "import type { DonationCenter } from '@/constants/types';",
@@ -515,4 +529,7 @@ function main() {
   );
 }
 
-main();
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

@@ -1,17 +1,57 @@
-import type { DonationCenter } from '@/constants/types';
+import type { DonationCenter, TaxonomyCategory } from '@/constants/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import taxonomyData from './taxonomy.json';
 import { DEFAULT_DONATION_CENTERS } from './defaultDonationCenters';
 
 const STORAGE_KEY = 'donatesmart_donation_centers';
 const SEED_VERSION_KEY = 'donatesmart_donation_centers_seed_version';
-const SEED_VERSION = '10';
+const SEED_VERSION = '12';
+const taxonomyCategories = taxonomyData as TaxonomyCategory[];
+const categoriesById = new Map(
+  taxonomyCategories.map((category) => [category.id, category]),
+);
+
+function getCategoryPath(category: string): string {
+  return categoriesById.get(category.trim())?.fullPath ?? category;
+}
+
+function isMatureCategory(category: string): boolean {
+  return category === 'Mature'
+    || categoriesById.get(category.trim())?.topLevel === 'Mature';
+}
+
+export function isCategoryMatch(
+  acceptedCategory: string,
+  selectedCategory: string,
+): boolean {
+  const acceptedPath = getCategoryPath(acceptedCategory)
+    .toLowerCase()
+    .split('>')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const selectedPath = getCategoryPath(selectedCategory)
+    .toLowerCase()
+    .split('>')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (!acceptedPath.length || !selectedPath.length) {
+    return acceptedCategory.toLowerCase().trim()
+      === selectedCategory.toLowerCase().trim();
+  }
+
+  return acceptedPath.length <= selectedPath.length
+    && acceptedPath.every(
+      (segment, index) => segment === selectedPath[index],
+    );
+}
 
 export async function getCenters(): Promise<DonationCenter[]> {
   const raw = await AsyncStorage.getItem(STORAGE_KEY);
   const storedCenters: DonationCenter[] = raw ? JSON.parse(raw) : [];
   const centers: DonationCenter[] = storedCenters.map((center: DonationCenter) => ({
     ...center,
-    acceptedCategories: center.acceptedCategories.filter((category) => category !== 'Mature'),
+    acceptedCategories: center.acceptedCategories.filter((category) => !isMatureCategory(category)),
   }));
   const defaultLookup = new Map(DEFAULT_DONATION_CENTERS.map((center) => [center.id, center]));
   const hydratedCenters = centers.map((center) => {
@@ -47,22 +87,6 @@ export async function saveCenters(centers: DonationCenter[]): Promise<void> {
 
 export async function getCentersForCategory(topLevel: string): Promise<DonationCenter[]> {
   const centers = await getCenters();
-  const categoryPathMatches = (acceptedCategory: string, selectedCategory: string) => {
-    const normalize = (value: string) => value.toLowerCase().split('>').map((part) => part.trim()).filter(Boolean);
-    const acceptedPath = normalize(acceptedCategory);
-    const selectedPath = normalize(selectedCategory);
-
-    if (acceptedPath.length === 0 || selectedPath.length === 0) {
-      return acceptedCategory.toLowerCase().trim() === selectedCategory.toLowerCase().trim();
-    }
-
-    if (acceptedPath.length > selectedPath.length) {
-      return false;
-    }
-
-    return acceptedPath.every((segment, index) => segment === selectedPath[index]);
-  };
-
   return centers.filter((center) => center.acceptedCategories.some((acceptedCategory) =>
-    categoryPathMatches(acceptedCategory, topLevel)));
+    isCategoryMatch(acceptedCategory, topLevel)));
 }
