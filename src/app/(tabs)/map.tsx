@@ -198,6 +198,7 @@ export default function MapScreen({
         .filter(
           (center) =>
             !showSavedOnly ||
+            center.id === mapFocusId ||
             savedCenterIds.has(center.id),
         )
         .filter(
