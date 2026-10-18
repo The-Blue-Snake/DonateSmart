@@ -316,10 +316,16 @@ export default function PhotoScan() {
               {hasDetectedCategory ? (
                 <>
                   <Pressable
-                    style={({ pressed }) => getPrimaryButtonStyle(pressed)}
+                    style={({ pressed }) => [
+                      getPrimaryButtonStyle(pressed),
+                      styles.confirmCategoryButton,
+                      pressed && styles.confirmCategoryButtonPressed,
+                    ]}
                     onPress={confirmDetectedCategory}
                   >
-                    <Text style={styles.primaryButtonText}>Confirm Category</Text>
+                    <Text style={styles.confirmCategoryButtonText}>
+                      Confirm Category
+                    </Text>
                   </Pressable>
 
                   <Pressable
@@ -455,6 +461,20 @@ const styles = StyleSheet.create({
   primaryButtonPressed: {
     backgroundColor: Colors.card,
     transform: [{ scale: 0.985 }],
+  },
+
+  confirmCategoryButton: {
+    backgroundColor: Colors.secondary,
+  },
+
+  confirmCategoryButtonPressed: {
+    backgroundColor: Colors.secondaryDark,
+  },
+
+  confirmCategoryButtonText: {
+    color: Colors.white,
+    fontSize: 15,
+    fontWeight: '600',
   },
 
   primaryButtonText: {

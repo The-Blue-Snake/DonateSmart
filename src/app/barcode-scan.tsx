@@ -275,11 +275,12 @@ export default function BarcodeScan() {
                     <Pressable
                       style={({ pressed }) => [
                         styles.primaryButton,
-                        pressed && styles.primaryButtonPressed,
+                        styles.confirmCategoryButton,
+                        pressed && styles.confirmCategoryButtonPressed,
                       ]}
                       onPress={confirmDetectedCategory}
                     >
-                      <Text style={styles.primaryButtonText}>
+                      <Text style={styles.confirmCategoryButtonText}>
                         Confirm Category
                       </Text>
                     </Pressable>
@@ -426,6 +427,21 @@ const styles = StyleSheet.create({
   primaryButtonPressed: {
     backgroundColor: Colors.card,
     transform: [{ scale: 0.985 }],
+  },
+
+  confirmCategoryButton: {
+    backgroundColor: Colors.secondary,
+  },
+
+  confirmCategoryButtonPressed: {
+    backgroundColor: Colors.secondaryDark,
+    transform: [{ scale: 0.985 }],
+  },
+
+  confirmCategoryButtonText: {
+    color: Colors.white,
+    fontSize: 15,
+    fontWeight: '600',
   },
 
   primaryButtonText: {

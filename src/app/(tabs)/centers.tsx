@@ -2,9 +2,9 @@ import { useAppTabNavigation } from '@/components/app-tab-navigation';
 import { Border, Colors, Spacing } from '@/constants/theme';
 import type { DonationCenter, PhotoSource } from '@/constants/types';
 import { getCenters, isCategoryMatch } from '@/data/donationCenters';
+import { isLikelyOpenNow } from '@/lib/hours';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { isLikelyOpenNow } from '@/lib/hours';
 import * as Location from 'expo-location';
 import {
   useFocusEffect,
@@ -65,6 +65,7 @@ const EXPANDED_CONTENT_WIDTH =
 const COLLAPSED_CARD_HEIGHT = 125;
 const CARD_GAP = 6;
 const ITEM_HEIGHT = COLLAPSED_CARD_HEIGHT + CARD_GAP;
+const CARD_IMAGE_PRELOAD_RADIUS = 10;
 
 const EXPANDED_CARD_HEIGHT = Math.min(
   SCREEN_HEIGHT * 0.78,
@@ -1083,6 +1084,7 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
     focusOpacity: Animated.AnimatedInterpolation<
       string | number
     >,
+    shouldLoadImage: boolean,
   ) => {
     const photo = center.photos?.[0];
 
@@ -1090,7 +1092,7 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
       <View
         style={styles.collapsedCenterCard}
       >
-        {photo ? (
+        {photo && shouldLoadImage && (
           <Image
             source={resolvePhotoSource(photo)}
             style={styles.collapsedPhoto}
@@ -1099,16 +1101,6 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
             priority="low"
             transition={150}
           />
-        ) : (
-          <View
-            style={styles.photoFallback}
-          >
-            <Ionicons
-              name="storefront-outline"
-              size={27}
-              color={Colors.primary}
-            />
-          </View>
         )}
 
         <View
@@ -1608,6 +1600,10 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
 
     const isExpanded =
       expandedCenterId === item.id;
+    const shouldLoadCardImage =
+      isExpanded ||
+      Math.abs(index - activeIndex) <=
+        CARD_IMAGE_PRELOAD_RADIUS;
 
     const opacity =
       expandedIndex === null
@@ -1702,6 +1698,7 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
                     item.center,
                     item.distance,
                     focusOpacity,
+                    true,
                   )}
                 </Animated.View>
 
@@ -1724,6 +1721,7 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
                 item.center,
                 item.distance,
                 focusOpacity,
+                shouldLoadCardImage,
               )
             )}
             <Animated.View
@@ -2209,13 +2207,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     width: '100%',
     height: '100%',
-  },
-
-  photoFallback: {
-    ...StyleSheet.absoluteFill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.card,
   },
 
   photoOverlay: {
