@@ -31,7 +31,6 @@ export default function PhotoScan() {
 
   const cameraRef = useRef<CameraView>(null);
   const [flashOpacity] = useState(() => new Animated.Value(0));
-  // Keeps the flash opaque while the captured image is being prepared.
   const [isTransitioning, setIsTransitioning] = useState(false);
   const classificationAbortController = useRef<AbortController | null>(null);
   const detectedCategoryName = detectedCategory?.name ?? '';
@@ -72,31 +71,16 @@ export default function PhotoScan() {
     return (
       <SafeAreaView style={styles.permissionContainer}>
         <View style={styles.permissionCard}>
-          <View style={styles.permissionIcon}>
-            <Text style={styles.permissionIconText}>⌾</Text>
-          </View>
-
-          <View style={styles.permissionContent}>
-            <Text style={styles.permissionTitle}>
-              Camera access needed
-            </Text>
-
-            <Text style={styles.permissionMessage}>
-              DonateSmart uses your camera to help identify items without
-              barcodes.
-            </Text>
-          </View>
+          <Text style={styles.permissionTitle}>Camera access needed</Text>
 
           <Pressable
             style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && styles.primaryButtonPressed,
+              styles.permissionButton,
+              pressed && styles.permissionButtonPressed,
             ]}
             onPress={requestPermission}
           >
-            <Text style={styles.primaryButtonText}>
-              Enable Camera
-            </Text>
+            <Text style={styles.permissionButtonText}>Enable Camera</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -114,9 +98,7 @@ export default function PhotoScan() {
     try {
       setIsCapturing(true);
 
-      // Cover the live preview immediately. Keep it covered until the still image
-      // has loaded, then reveal that image in one frame (no crossfade). This
-      // prevents the live feed from reappearing while takePictureAsync resolves.
+      // Keep the preview covered until the captured image is ready.
       flashOpacity.stopAnimation();
       flashOpacity.setValue(0);
       Animated.timing(flashOpacity, {
@@ -200,13 +182,11 @@ export default function PhotoScan() {
   };
 
   const hasDetectedCategory = Boolean(detectedCategory);
-  // Unmount the camera immediately once a captured URI is available.
   const showCamera = !capturedUri;
 
   const showResult = Boolean(capturedUri && !isAnalyzing && !isTransitioning);
 
   const handleCapturedImageLoad = () => {
-    // Reveal the still image instantly. The camera has already been unmounted.
     flashOpacity.stopAnimation();
     flashOpacity.setValue(0);
     setIsTransitioning(false);
@@ -397,53 +377,47 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     justifyContent: 'center',
     paddingHorizontal: Spacing.screen,
+    alignItems: 'center',
   },
 
   permissionCard: {
     width: '100%',
+    maxWidth: 380,
     backgroundColor: Colors.card,
     borderWidth: Border.width,
     borderColor: Colors.border,
-    borderRadius: 14,
-    padding: 22,
-  },
-
-  permissionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    borderWidth: Border.width,
-    borderColor: Colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-
-  permissionIconText: {
-    color: Colors.primary,
-    fontSize: 27,
-    lineHeight: 30,
-    fontWeight: '400',
-  },
-
-  permissionContent: {
-    paddingBottom: 22,
-    borderBottomWidth: Border.width,
-    borderBottomColor: Colors.border,
+    borderRadius: 18,
+    padding: 24,
   },
 
   permissionTitle: {
-    fontSize: 20,
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: '700',
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
     color: Colors.text,
-    marginBottom: 7,
+    textAlign: 'center',
   },
 
-  permissionMessage: {
-    fontSize: 14,
-    color: Colors.textMuted,
-    lineHeight: 20,
+  permissionButton: {
+    minHeight: 52,
+    marginTop: 22,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+
+  permissionButtonPressed: {
+    backgroundColor: Colors.primaryDark,
+    transform: [{ scale: 0.985 }],
+  },
+
+  permissionButtonText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
 
   primaryButton: {

@@ -146,13 +146,7 @@ export default function MapScreen({
     }, []),
   );
 
-  /*
-   * Only respond to a centerId that was supplied when navigating
-   * to the map from another screen.
-   *
-   * Selecting pins on the map itself does NOT update the router,
-   * so the selection won't persist when returning to Centers.
-   */
+  // Route-driven focus is separate from selections made on the map.
   useEffect(() => {
     if (focusedCenterId === undefined) {
       return;
@@ -246,22 +240,12 @@ export default function MapScreen({
     [markers, mapRegion],
   );
 
-  /*
-   * Selecting a pin is intentionally LOCAL state only.
-   *
-   * Do not call router.setParams() here. Otherwise the selected
-   * centerId survives when switching back to the Centers tab.
-   */
+  // Keep map selections local so they don't persist when switching tabs.
   const focusOnCenter = (id: string) => {
     setSelectedId(id);
     setMapFocusId(id);
   };
 
-  /*
-   * Return the map to showing all centers.
-   *
-   * Again, this only changes local map state.
-   */
   const showAllCenters = () => {
     setSelectedId(null);
     setMapFocusId(null);
@@ -387,7 +371,6 @@ export default function MapScreen({
           ) : null}
         </MapView>
 
-        {/* Close button */}
         {mapFocusId ? (
           <Pressable
             style={({ pressed }) => [
@@ -404,7 +387,6 @@ export default function MapScreen({
           </Pressable>
         ) : null}
 
-        {/* Information popup */}
         <View style={styles.infoPanel}>
           {selectedCenter ? (
             <>

@@ -129,28 +129,6 @@ function getMasterPhotoFolder() {
   return masterAssetFolder;
 }
 
-/**
- * Extracts the image associated with each spreadsheet row.
- *
- * IMPORTANT:
- * Excel drawing row indexes are zero-based.
- *
- * If the spreadsheet has:
- *
- *   Excel row 1 = headers
- *   Excel row 2 = first donation center
- *
- * then:
- *
- *   drawing row 1 -> data row 0
- *   drawing row 2 -> data row 1
- *
- * Therefore the conversion is:
- *
- *   localRowIndex = excelRow - 1
- *
- * NOT excelRow - 2.
- */
 async function buildImageMapFromSpreadsheet(
   workbookPath,
   rowCount,
@@ -181,12 +159,6 @@ async function buildImageMapFromSpreadsheet(
   const drawingXml = zip.readAsText(drawingPath);
   const relsXml = zip.readAsText(relsPath);
 
-  /**
-   * Map relationship IDs to image targets.
-   *
-   * Example:
-   * rId1 -> ../media/image1.png
-   */
   const relMap = {};
 
   const relRegex =
@@ -200,17 +172,6 @@ async function buildImageMapFromSpreadsheet(
 
   const rowToImages = {};
 
-  /**
-   * Excel can store pictures as either:
-   *
-   * <xdr:oneCellAnchor>
-   *
-   * or
-   *
-   * <xdr:twoCellAnchor>
-   *
-   * Handle both.
-   */
   const anchorRegex =
     /<xdr:(?:oneCellAnchor|twoCellAnchor)>[\s\S]*?<xdr:from>[\s\S]*?<xdr:row>(\d+)<\/xdr:row>[\s\S]*?<a:blip[^>]*r:embed="([^"]+)"[\s\S]*?<\/xdr:(?:oneCellAnchor|twoCellAnchor)>/g;
 
@@ -226,22 +187,7 @@ async function buildImageMapFromSpreadsheet(
 
     if (!target) continue;
 
-    /**
-     * THIS IS THE IMPORTANT FIX.
-     *
-     * Excel's drawing rows are zero-based.
-     *
-     * Excel:
-     *   row 0 = spreadsheet row 1 (header)
-     *   row 1 = spreadsheet row 2 (first data row)
-     *
-     * sheet_to_json() gives:
-     *   index 0 = first data row
-     *
-     * Therefore:
-     *
-     *   data index = Excel drawing row - 1
-     */
+    // Excel drawing rows are zero-based; sheet_to_json data rows start at index 0.
     const rowIndex = excelRowNumber - 1;
 
     if (

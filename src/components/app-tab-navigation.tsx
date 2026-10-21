@@ -15,7 +15,6 @@ export type AppTabParams = {
   name?: string;
   centerId?: string;
 
-  // Centers list state
   sort?: string;
   search?: string;
 };
@@ -52,7 +51,6 @@ export function AppTabNavigationProvider({
   const [currentTab, setCurrentTab] = useState<AppTabKey>('index');
   const [animateTabChange, setAnimateTabChange] = useState(true);
 
-  // Keep the state of every tab independently.
   const [tabParams, setTabParams] = useState<TabParams>({
     index: {},
     centers: {},
@@ -72,9 +70,7 @@ export function AppTabNavigationProvider({
 
       setTabParams((previous) => {
         if (params === undefined) {
-          // Centers keeps its existing filters when no params are passed
-          // (e.g. switching tabs via swipe or the tab bar). All other tabs
-          // reset to default, as before.
+          // Preserve center filters when switching tabs.
           if (tab === 'centers') {
             return previous;
           }
@@ -97,10 +93,6 @@ export function AppTabNavigationProvider({
     [],
   );
 
-  // Explicit reset, independent of navigateToTab's merge-vs-preserve logic.
-  // Use this whenever you actually want to clear a tab's params (e.g. the
-  // "X" button on an active filter), rather than relying on navigateToTab
-  // with no params.
   const resetTabParams = useCallback((tab: AppTabKey) => {
     setTabParams((previous) => ({
       ...previous,

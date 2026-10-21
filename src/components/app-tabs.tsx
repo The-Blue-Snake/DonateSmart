@@ -78,10 +78,7 @@ export default function AppTabs() {
         {TABS.map(({ key, Component }) => {
           const TabComponent = Component as any;
 
-          // Each page always gets its own tab's params directly, regardless
-          // of which tab is currently "active" — so the page shows the
-          // right content immediately on swipe, without waiting for
-          // onPageSelected to update currentTab.
+          // Pass each tab its own params so swiping renders its state immediately.
           return (
             <View key={key} style={styles.page}>
               <TabComponent

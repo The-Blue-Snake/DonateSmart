@@ -72,22 +72,15 @@ const EXPANDED_CARD_HEIGHT = Math.min(
   660,
 );
 
-// The search header takes up the same vertical space as two regular cards,
-// so the first real center card can sit exactly where a focused card would.
 const SEARCH_CARD_HEIGHT = ITEM_HEIGHT * 2 + 8 - CARD_GAP;
 
-// A bit more breathing room between the header and the first card than the
-// standard gap used between regular cards.
 const HEADER_TO_LIST_GAP = CARD_GAP + 5;
 
-// Same "center the focused card on screen" formula the carousel already used.
 const FOCUS_OFFSET = Math.max(
   18,
   (SCREEN_HEIGHT - ITEM_HEIGHT) / 2 - 62,
 );
 
-// Leading padding above the header, chosen so header + gap + first card
-// lines up with FOCUS_OFFSET.
 const HEADER_LEADING_SPACE = Math.max(
   0,
   FOCUS_OFFSET -
@@ -2336,11 +2329,6 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
   },
 
-  /*
-   * Match the actual inner width of expandedCard.
-   * expandedCard has a 1px border on both sides,
-   * so its content is CARD_WIDTH - 2.
-   */
   expandedPhotoPage: {
     width: EXPANDED_CONTENT_WIDTH,
     height: '100%',

@@ -47,26 +47,16 @@ export default function BarcodeScan() {
     return (
       <SafeAreaView style={styles.permissionContainer}>
         <View style={styles.permissionCard}>
-          <View style={styles.permissionIcon}>
-            <Text style={styles.permissionIconText}>⌁</Text>
-          </View>
-
-          <View style={styles.permissionContent}>
-            <Text style={styles.permissionTitle}>Camera access needed</Text>
-
-            <Text style={styles.permissionMessage}>
-              DonateSmart uses your camera to scan barcodes and identify items.
-            </Text>
-          </View>
+          <Text style={styles.permissionTitle}>Camera access needed</Text>
 
           <Pressable
             style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && styles.primaryButtonPressed,
+              styles.permissionButton,
+              pressed && styles.permissionButtonPressed,
             ]}
             onPress={requestPermission}
           >
-            <Text style={styles.primaryButtonText}>Enable Camera</Text>
+            <Text style={styles.permissionButtonText}>Enable Camera</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -364,53 +354,47 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     justifyContent: 'center',
     paddingHorizontal: Spacing.screen,
+    alignItems: 'center',
   },
 
   permissionCard: {
     width: '100%',
+    maxWidth: 380,
     backgroundColor: Colors.card,
     borderWidth: Border.width,
     borderColor: Colors.border,
-    borderRadius: 14,
-    padding: 22,
-  },
-
-  permissionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    borderWidth: Border.width,
-    borderColor: Colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-
-  permissionIconText: {
-    color: Colors.primary,
-    fontSize: 27,
-    lineHeight: 30,
-    fontWeight: '400',
-  },
-
-  permissionContent: {
-    paddingBottom: 22,
-    borderBottomWidth: Border.width,
-    borderBottomColor: Colors.border,
+    borderRadius: 18,
+    padding: 24,
   },
 
   permissionTitle: {
-    fontSize: 20,
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: '700',
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
     color: Colors.text,
-    marginBottom: 7,
+    textAlign: 'center',
   },
 
-  permissionMessage: {
-    fontSize: 14,
-    color: Colors.textMuted,
-    lineHeight: 20,
+  permissionButton: {
+    minHeight: 52,
+    marginTop: 22,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+
+  permissionButtonPressed: {
+    backgroundColor: Colors.primaryDark,
+    transform: [{ scale: 0.985 }],
+  },
+
+  permissionButtonText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
 
   primaryButton: {
