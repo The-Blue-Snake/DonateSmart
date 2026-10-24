@@ -7,7 +7,7 @@ DonateSmart helps find the right place to donate an item in Minneapolis! Search 
 ### Requirements
 
 - Node.js and npm
-- The DonateSmart donation-center spreadsheets. They are large and are not included in this GitHub repository, so links are below.
+- The DonateSmart donation-center spreadsheets. They are large and are not included in GitHub, so links are below.
 - API keys for photo classification and barcode lookup if you want to use those features
 
 ### Install and add the spreadsheets
@@ -22,11 +22,11 @@ DonateSmart helps find the right place to donate an item in Minneapolis! Search 
 
 2. Download the five spreadsheets below and place the `.xlsx` files in `src/data/`:
 
-   - [Spreadsheet 1](ADD_GOOGLE_SHEET_LINK_1)
-   - [Spreadsheet 2](ADD_GOOGLE_SHEET_LINK_2)
-   - [Spreadsheet 3](ADD_GOOGLE_SHEET_LINK_3)
-   - [Spreadsheet 4](ADD_GOOGLE_SHEET_LINK_4)
-   - [Spreadsheet 5](ADD_GOOGLE_SHEET_LINK_5)
+   - [Spreadsheet 1](https://docs.google.com/spreadsheets/d/187a3WywaJqy8-Eu-rPFJuUxHijGZS_MxYldiY9gQSVw/edit?usp=sharing)
+   - [Spreadsheet 2](https://docs.google.com/spreadsheets/d/17U8yoNySPi5V2gT2kyakB4asg4NaKdeJdEBYD_I8Aa0/edit?usp=sharing)
+   - [Spreadsheet 3](https://docs.google.com/spreadsheets/d/1wQAxu7I-0YBZZuVuEvQ2HF5hLoTqzsqU_8gPE1coYS8/edit?usp=sharing)
+   - [Spreadsheet 4](https://docs.google.com/spreadsheets/d/1-4866p8JHEGOcDbdPJPL_02KZbsuuAKTq3QMjQeD2OU/edit?usp=sharing)
+   - [Spreadsheet 5](https://docs.google.com/spreadsheets/d/1aGSZ6-mdDpQrfu9kJPPG1hM8AxKfUVQk1gMb53KDMZc/edit?usp=sharing)
 
 3. Generate the donation-center data and photo assets:
 

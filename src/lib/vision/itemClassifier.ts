@@ -3,7 +3,7 @@ import taxonomyData from '@/data/taxonomy.json';
 import { Blob as ExpoBlob } from 'expo-blob';
 
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/interactions';
-const GEMINI_MODEL = 'gemini-3.1-flash-lite';
+const GEMINI_MODEL = 'gemini-3.5-flash-lite';
 const REQUEST_TIMEOUT_MS = 120_000;
 const MAX_EXAMPLES_PER_CANDIDATE = 4;
 const UNCERTAIN_ID = 'uncertain';
