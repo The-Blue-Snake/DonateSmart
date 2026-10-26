@@ -30,6 +30,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import type {
+  FlatListInstance,
+  ScrollViewInstance,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type RouteParams = {
@@ -152,7 +156,7 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
     getSingleParam(mergedParams.centerId);
 
   const listRef =
-    useRef<Animated.FlatList<CarouselItem>>(null);
+    useRef<FlatListInstance | null>(null);
 
   const [scrollY] =
     useState(() => new Animated.Value(0));
@@ -197,9 +201,9 @@ const { navigateToTab, resetTabParams } = useAppTabNavigation();
     useState(false);
 
   const expandedPhotoScrollRef =
-    useRef<ScrollView | null>(null);
+    useRef<ScrollViewInstance | null>(null);
   const photoViewerScrollRef =
-    useRef<ScrollView | null>(null);
+    useRef<ScrollViewInstance | null>(null);
 
   const [expansionProgress] =
     useState(() => new Animated.Value(0));
